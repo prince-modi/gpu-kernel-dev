@@ -16,6 +16,7 @@ else:
     DEVICE = torch.device("cpu")
     print("CUDA not available. Using CPU.")
     os.environ["TRITON_INTERPRET"] = "1"
+    
 @triton.testing.perf_report(
     [triton.testing.Benchmark(
         x_names=['N'],  # argument names to use as an x-axis for the plot
