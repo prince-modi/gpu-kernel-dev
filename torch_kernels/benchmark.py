@@ -5,7 +5,7 @@ def rms_benchmarks(benchmark_name: str,**kwargs):
     w = kwargs['w']
     eps = kwargs['eps']
     
-    if benchmark_name == 'helion_rms_kernel':
+    if benchmark_name == 'rmsnorm':
         rmsnorm_kernel_basic(X,w,eps)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
