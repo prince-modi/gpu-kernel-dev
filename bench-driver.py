@@ -1,7 +1,10 @@
-import triton.benchmark as tlb
-import helion.benchmark as hlb
-import torch.benchmark as torlb
+import triton_kernels.benchmark as tlb
+import helion_kernels.benchmark as hlb
+import torch_kernels.benchmark as torlb
 import triton
+import torch
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 @triton.testing.perf_report(
     [triton.testing.Benchmark(
@@ -26,7 +29,7 @@ import triton
         plot_name="softmax-performance with varying M",  # name for the plot. Used also as a file name for saving the plot.
         args={'N': 4096},  # values for function arguments not in `x_names` and `y_name`
     )])
-def rms_benchmark(M: int, N: int, provider: str, gather_dumps: bool):
+def rms_benchmark(M: int, N: int, provider: str):
     x = torch.randn(M, N, device=DEVICE, dtype=torch.float32)
     w = torch.randn(M, N, device=DEVICE, dtype=torch.float32)
     eps = torch.randn(1,1,device = DEVICE, dtype= torch.float32)

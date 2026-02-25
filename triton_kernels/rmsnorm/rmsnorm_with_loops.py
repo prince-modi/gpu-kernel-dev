@@ -1,6 +1,6 @@
 #program ver based on Dario and https://subhadipmitra.com/blog/2025/triton-kernels-llm-inference/#fusion-the-real-win
 @triton.jit
-def rmsnorm_with_loops(output_ptr,input_ptr,w_ptr,input_row_stride,n_rows,eps,BLOCK_SIZE: tl.constexpr, num_stages: tl.constexpr):
+def rmsnorm_kernel_1(output_ptr,input_ptr,w_ptr,input_row_stride,n_rows,eps,BLOCK_SIZE: tl.constexpr, num_stages: tl.constexpr):
     # Each program handles one row
     row = tl.program_id(0)
 

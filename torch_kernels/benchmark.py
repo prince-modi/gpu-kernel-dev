@@ -1,19 +1,17 @@
-from rmsnorm.torch_rmsnorm import rmsnorm
-
-def rms_benchmarks(benchmark_name: str, args: dict):
-    if 'X' not in args or 'w' not in args or 'eps' not in args:
+def rms_benchmarks(benchmark_name: str,**kwargs):
+    if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')
-    X = args['X']
-    w = args['w']
-    eps = args['eps']
+    X = kwargs['X']
+    w = kwargs['w']
+    eps = kwargs['eps']
     
     if benchmark_name == 'helion_rms_kernel':
-        rmsnorm(X,w,eps)
+        rmsnorm_kernel_basic(X,w,eps)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
 
 
-def helion_provide_benchmark(benchmark_name: str,**kwargs):
+def torch_provide_benchmark(benchmark_name: str,**kwargs):
     if 'rms' in benchmark_name:
         rms_benchmarks(benchmark_name,kwargs)
     elif 'flashattn' in benchmark_name:

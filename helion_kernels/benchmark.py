@@ -1,11 +1,9 @@
-from rmsnorm.basic_rmsnorm import helion_rms_kernel
-
-def rms_benchmarks(benchmark_name: str, args: dict):
-    if 'X' not in args or 'w' not in args or 'eps' not in args:
+def rms_benchmarks(benchmark_name: str,**kwargs):
+    if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')
-    X = args['X']
-    w = args['w']
-    eps = args['eps']
+    X = kwargs['X']
+    w = kwargs['w']
+    eps = kwargs['eps']
     
     if benchmark_name == 'helion_rms_kernel':
         helion_rms_kernel(X,w,eps)
