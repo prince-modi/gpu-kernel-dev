@@ -8,6 +8,6 @@ def helion_rms_kernel(x: Tensor, w: Tensor, eps) -> Tensor:
   for m_tile in hl.tile(m):
       row = x[m_tile,:]
       sumsq = torch.rsqrt(torch.mean(row * row,dim = -1) + eps)
-      row = (row * sumsq[:,None]) * w[m_tile,:]
+      row = (row * sumsq[:,None]) * w[:]
       out[m_tile,:] = row
   return out

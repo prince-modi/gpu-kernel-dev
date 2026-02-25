@@ -1,3 +1,5 @@
+from helion_kernels.rmsnorm.basic_rmsnorm import helion_rms_kernel
+
 def rms_benchmarks(benchmark_name: str,**kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')

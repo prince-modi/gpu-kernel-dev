@@ -1,3 +1,5 @@
+from torch_kernels.rmsnorm.torch_rmsnorm import rmsnorm_kernel_basic
+
 def rms_benchmarks(benchmark_name: str,**kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')

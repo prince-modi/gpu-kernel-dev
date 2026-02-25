@@ -1,3 +1,5 @@
+from triton_kernels.rmsnorm.rmsnorm_with_loops import rmsnorm_kernel_1
+
 def rms_benchmarks(benchmark_name: str,**kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')
