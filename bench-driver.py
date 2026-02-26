@@ -1,5 +1,5 @@
 import triton_kernels.benchmark as tlb
-# import helion_kernels.benchmark as hlb
+import helion_kernels.benchmark as hlb
 import torch_kernels.benchmark as torlb
 import triton
 import torch
@@ -50,7 +50,6 @@ def rms_benchmark(M: int, N: int, provider: str):
     if dsl_type == 'triton':
         ms = triton.testing.do_bench(lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
     elif dsl_type == 'helion':
-        pass
         ms = triton.testing.do_bench(lambda: hlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
     elif dsl_type == 'torch':
         ms = triton.testing.do_bench(lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))

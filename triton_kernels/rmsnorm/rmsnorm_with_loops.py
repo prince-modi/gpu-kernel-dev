@@ -20,10 +20,14 @@ def rmsnorm_kernel_1(output_ptr,input_ptr,w_ptr,eps,input_row_stride,BLOCK_SIZE:
         x = tl.load(X_row + cols, mask=mask, other=0.0).to(tl.float32)
         sum_sq += x * x
 
-    acc_sum_sq = 1 / tl.sqrt(tl.sum(sum_sq) / input_row_stride + eps)
+    mean_sq = (tl.sum(sum_sq) / input_row_stride).to(tl.float32)
+    loaded_eps = tl.load(eps)
+    sum_terms = (loaded_eps + mean_sq)
+    normfactor = 1.0 / tl.sqrt(sum_terms)
+
     for off in tl.range(0,input_row_stride,BLOCK_SIZE,num_stages = num_stages):
       cols = off + tl.arange(0,BLOCK_SIZE)
       mask = cols < input_row_stride
       x_block = tl.load(X_row + cols, mask = mask, other = 0.0).to(tl.float32)
       w_block = tl.load(w_ptr + cols, mask=mask,other = 0.0).to(tl.float32)
-      tl.store(Y_row + cols, x_block * w_block * acc_sum_sq, mask=mask)
+      tl.store(Y_row + cols, x_block * w_block * normfactor, mask=mask)
