@@ -22,22 +22,22 @@ else:
         x_names=['N'],  # argument names to use as an x-axis for the plot
         x_vals=[128 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel'],  # possible values for `line_arg``
-        line_names=["Torch", "Triton w Loops","Helion"],  # label name for the lines
+        line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops'],  #,'helion-helion_rms_kernel' possible values for `line_arg``
+        line_names=["Torch", "Triton w Loops"],  #,"Helion" label name for the lines
         styles=[('blue', '-'), ('green', '-'), ('red', '-')],  # line styles
         ylabel="GB/s",  # label name for the y-axis
-        plot_name="softmax-performance with varying N",  # name for the plot. Used also as a file name for saving the plot.
+        plot_name="RMS-Norm-With-Varying-N",  # name for the plot. Used also as a file name for saving the plot.
         args={'M': 4096},  # values for function arguments not in `x_names` and `y_name`
     ),
      triton.testing.Benchmark(
         x_names=['M'],  # argument names to use as an x-axis for the plot
         x_vals=[128 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel'],  # possible values for `line_arg``
-        line_names=["Torch", "Triton w Loops","Helion"],  # label name for the lines
+        line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops'],  # 'helion-helion_rms_kernel' possible values for `line_arg``
+        line_names=["Torch", "Triton w Loops"],  #,"Helion" label name for the lines
         styles=[('blue', '-'), ('green', '-'), ('red', '-')],  # line styles
         ylabel="GB/s",  # label name for the y-axis
-        plot_name="softmax-performance with varying M",  # name for the plot. Used also as a file name for saving the plot.
+        plot_name="RMS-Norm-With-Varying-M",  # name for the plot. Used also as a file name for saving the plot.
         args={'N': 4096},  # values for function arguments not in `x_names` and `y_name`
     )])
 def rms_benchmark(M: int, N: int, provider: str):
@@ -58,4 +58,4 @@ def rms_benchmark(M: int, N: int, provider: str):
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
     return gbps(ms)
 
-rms_benchmark.run(show_plots=True, print_data=True)
+rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
