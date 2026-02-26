@@ -1,4 +1,5 @@
 from helion_kernels.rmsnorm.basic_rmsnorm import helion_rms_kernel
+from helion_kernels.rmsnorm.example_rmsnorm import rms_norm_fwd
 
 def rms_benchmarks(benchmark_name: str,**kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
@@ -9,6 +10,8 @@ def rms_benchmarks(benchmark_name: str,**kwargs):
     
     if benchmark_name == 'helion_rms_kernel':
         helion_rms_kernel(X,w,eps)
+    elif benchmark_name == 'example_helion_rms_kernel':
+        rms_norm_fwd(X,w,eps)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
 
