@@ -1,4 +1,6 @@
 from triton_kernels.rmsnorm.rmsnorm_with_loops import rmsnorm_kernel_1
+import triton
+import torch
 
 def rms_benchmarks(benchmark_name: str,**kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
@@ -6,18 +8,23 @@ def rms_benchmarks(benchmark_name: str,**kwargs):
     X = kwargs['X']
     w = kwargs['w']
     eps = kwargs['eps']
-
-    BLOCK_SIZE = meta['BLOCK_SIZE']
+    MAX_FUSED_SIZE = 65536
     if 'BLOCK_SIZE' in kwargs:
         BLOCK_SIZE = kwargs['BLOCK_SIZE']
+    else:
+        BLOCK_SIZE = MAX_FUSED_SIZE
     
     num_stages = 2
     if num_stages in kwargs:
         num_stages = kwargs['num_stages']
+
+    DEVICE = X.device
+    if 'DEVICE' in kwargs:
+      DEVICE = kwargs['DEVICE']
     
     output = torch.empty_like(X, device = DEVICE)
     if benchmark_name == 'rmsnorm_with_loops':
-        rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,X.stride(0),X.shape[0],eps,BLOCK_SIZE,num_stages)
+        rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
 
