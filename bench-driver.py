@@ -58,4 +58,8 @@ def rms_benchmark(M: int, N: int, provider: str):
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
     return gbps(ms)
 
-rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+
+if __name__ == "__main__":
+    if os.path.exists("results") == False:
+        os.mkdir("results")
+    rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
