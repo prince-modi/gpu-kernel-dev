@@ -21,9 +21,7 @@ def rmsnorm_kernel_1(output_ptr,input_ptr,w_ptr,eps,input_row_stride,BLOCK_SIZE:
         sum_sq += x * x
 
     mean_sq = (tl.sum(sum_sq) / input_row_stride).to(tl.float32)
-    loaded_eps = tl.load(eps)
-    sum_terms = (loaded_eps + mean_sq)
-    normfactor = 1.0 / tl.sqrt(sum_terms)
+    normfactor = 1.0 / tl.sqrt(mean_sq + eps)
 
     for off in tl.range(0,input_row_stride,BLOCK_SIZE,num_stages = num_stages):
       cols = off + tl.arange(0,BLOCK_SIZE)
