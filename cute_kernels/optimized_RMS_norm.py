@@ -17,6 +17,13 @@ from cutlass.cute.runtime import from_dlpack
 from cutlass.cutlass_dsl import dsl_user_op
 from cutlass.cute.nvgpu import cpasync
 
+
+################################################################################
+################################################################################
+# Below are borrowed utilities from the quack library. Thread Block Cluster handling has been removed.
+################################################################################
+################################################################################
+
 @dsl_user_op
 def get_copy_atom(
     dtype: Type[cutlass.Numeric], num_copy_elems: int, is_async: bool = False, *, loc=None, ip=None
@@ -150,6 +157,12 @@ def row_reduce(
         if const_expr(reduction_buffer.shape[1] > 1):
             val = block_reduce(val, warp_op, reduction_buffer, init_val=init_val)
     return val
+
+################################################################################
+################################################################################
+# End of borrowed utilities from the quack library.
+################################################################################
+################################################################################
 
 
 def _threads_per_row(N):
