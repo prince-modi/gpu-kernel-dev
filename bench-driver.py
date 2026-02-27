@@ -65,8 +65,8 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         if os.path.exists("results") == False:
             os.mkdir("results")
-        # rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
-        print('Running rms_benchmark')
+        rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+        # print('Running rms_benchmark')
         #add other benchmarks here
     else:
         parser = argparse.ArgumentParser()
