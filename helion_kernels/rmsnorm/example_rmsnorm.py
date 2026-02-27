@@ -4,7 +4,7 @@ import helion.language as hl
 
 
 #https://helionlang.com/examples/rms_norm.html
-@helion.kernel
+@helion.kernel(autotune_effort="none")
 def rms_norm_fwd(
     x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5
 ) -> torch.Tensor:
