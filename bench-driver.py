@@ -44,6 +44,12 @@ else:
         args={'N': 4096},  # values for function arguments not in `x_names` and `y_name`
     )])
 def rms_benchmark(M: int, N: int, provider: str):
+    method = get_rms_benchmark(M,N,provider)
+    ms = triton.testing.do_bench(method())
+    gbps = lambda ms: 2 * M * N * 4 * 1e-9 / (ms * 1e-3)
+    return gbps(ms)
+
+def get_rms_benchmark(M: int, N: int, provider: str):
     x = torch.randn(M, N, device=DEVICE, dtype=torch.float32)
     w = torch.randn(N, device=DEVICE, dtype=torch.float32)
     eps = random.random()
@@ -51,15 +57,13 @@ def rms_benchmark(M: int, N: int, provider: str):
     dsl_type = split_name[0]
     bench_name = split_name[1]
     if dsl_type == 'triton':
-        ms = triton.testing.do_bench(lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        return lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
     elif dsl_type == 'helion':
-        ms = triton.testing.do_bench(lambda: hlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        return lambda: hlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
     elif dsl_type == 'torch':
-        ms = triton.testing.do_bench(lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        return lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
     else:
         raise Exception(f'{provider} is not yet supported')
-    gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
-    return gbps(ms)
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
@@ -86,7 +90,8 @@ if __name__ == "__main__":
                 # if len(args.M) != 1 or len(args.N) != 1:
                 #     raise Exception(f'Require 1 M and N value, not len(M) = {len(args.M)} and len(N) = {len(args.N)}')
                 #for sake of completion, just hardcoding M, N; either manually adjust or find another way to automate (another python script instead of bash)
-                rms_benchmark(1024,1024,kernel_test_name)
+                method = get_rms_benchmark(1024,1024,kernel_test_name)
+                method()
                 # print(f'Running {kernel_test_name} from {benchmark_name}; M = {args.M[0]} ; N= {args.N[0]}')
             elif benchmark_name == 'flashattn_bench':
               #can be defined here
