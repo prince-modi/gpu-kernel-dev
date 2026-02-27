@@ -4,6 +4,8 @@ import torch_kernels.benchmark as torlb
 import triton
 import torch
 import os
+import argparse
+import sys
 import random
 
 if torch.cuda.is_available():
@@ -59,8 +61,47 @@ def rms_benchmark(M: int, N: int, provider: str):
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
     return gbps(ms)
 
-
 if __name__ == "__main__":
-    if os.path.exists("results") == False:
-        os.mkdir("results")
-    rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+    if len(sys.argv) == 1:
+        if os.path.exists("results") == False:
+            os.mkdir("results")
+        # rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+        print('Running rms_benchmark')
+        #add other benchmarks here
+    else:
+        parser = argparse.ArgumentParser()
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("--generate-kernel-dump", help="Specific kernel name to generate dump for (write as <bench-name>-<kernel-name>)",nargs='?',type=str)
+        group.add_argument("--run-benchmark", help="Specify list of benchmarks to run - comma-separated list",nargs=1,type=str)
+        parser.add_argument("--M",help="Specify M dimensions - write multiple if there are multiple tensors(e.g., rmsnorm only has 1 M while attention has 3 Ms)",nargs='*',type=int)
+        parser.add_argument("--N",help="Specify N dimensions - write multiple if there are multiple tensors(e.g., rmsnorm only has 1 N while attention has 3 Ns)",nargs='*',type=int)
+        args = parser.parse_args()
+
+        if args.generate_kernel_dump is not None:
+            kernel_name_string = args.generate_kernel_dump
+            split_string = kernel_name_string.split('-',maxsplit = 1)
+            benchmark_name = split_string[0].lower()
+            kernel_test_name = split_string[1].lower()
+            if benchmark_name == 'rms_bench':
+                if len(args.M) != 1 or len(args.N) != 1:
+                    print(f'Require 1 M and N value, not len(M) = {len(args.M)} and len(N) = {len(args.N)}')
+                    sys.exit(1)
+                rms_benchmark(args.M[0],args.N[0],kernel_test_name)
+                print(f'Running {kernel_test_name} from {benchmark_name}; M = {args.M[0]} ; N= {args.N[0]}')
+            elif benchmark_name == 'flashattn_bench':
+              #can be defined here
+              pass
+            else:
+                print(f'Benchmark {benchmark_name} has not been identified. Exiting...')
+                sys.exit(1)
+        else:
+            benchmark_names = args.run_benchmark[0].split(',')
+            print(benchmark_names)
+            for bench in benchmark_names:
+                if bench == 'rms_bench':
+                    rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+                elif bench == 'flashattn_bench':
+                    #can be defined here
+                    raise Exception(f'Need to add benchmark flashattn_bench here. Exiting...')
+                else:
+                    raise Exception(f'Benchmark {bench} has no corresponding function. Please Add...')
