@@ -1,13 +1,12 @@
 import helion
 import torch
 import helion.language as hl
+from generate_config import retrieve_configs
+
+config_list = retrieve_configs('helion_rms_kernel')
 
 
-@helion.kernel(
-      helion.Config.load("configs/helion_rms_kernel-256x256x256.json"),
-      helion.Config.load("configs/helion_rms_kernel-1024x1024x1024.json"),
-      helion.Config.load("configs/helion_rms_kernel-8192x8192x8192.json")
-)
+@helion.kernel(configs = config_list, static_shapes = False)
 def helion_rms_kernel(x: torch.Tensor, w: torch.Tensor, eps) -> torch.Tensor:
   out = torch.empty_like(x)
   m = x.shape[0]

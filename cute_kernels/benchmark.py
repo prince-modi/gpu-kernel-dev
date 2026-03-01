@@ -44,8 +44,10 @@ def rms_benchmark(compiled_code,**kwargs):
     mY = from_dlpack(y, assumed_align=16)
     compiled_code(mX,mW,mY,X.shape[0],w.shape[0],Float32(eps))
 
-def cute_provide_benchmark(benchmark_name: str,compiled_code,**kwargs):
+def cute_provide_benchmark(benchmark_name: str,**kwargs):
     if 'rms' in benchmark_name:
+        #can handle similar to helion + autotune -> for now, thinking of keeping simple and not doing AOT compilation
+        compiled_code = compile_rms_benchmark(benchmark_name,kwargs)
         rms_benchmark(compiled_code,kwargs)
     elif 'flashattn' in benchmark_name:
         raise Exception(f'Received unsupported kernel {benchmark_name}')

@@ -1,6 +1,7 @@
 import os
 
 import torch
+import helion
 
 from helion_kernels.rmsnorm.basic_rmsnorm import helion_rms_kernel
 
@@ -38,6 +39,15 @@ rmsnorm_configs = [
 
 #     )
 # ]
+
+def retrieve_configs(benchmark_name: str):
+    all_configs = os.listdir('configs')
+    filtered_configs = []
+    for conf in all_configs:
+        if benchmark_name in conf and 'json' in conf:
+            filtered_configs.append(helion.Config.load(os.path.join('configs',conf)))
+    return filtered_configs
+
 
 def get_signature(args: list) -> str:
     sig = []
@@ -93,7 +103,7 @@ def autotune(kernel, kernel_args=None, M=None, N=None, force_autotune=False):
         if os.path.exists(config_name) and not force_autotune:
             print(f"Config already exists for argument sizes {signature}.")
             continue
-        config = kernel.autotune(args)
+        config = kernel.autotune(args,force=force_autotune)
         config.save(config_name)
         compiled_code = kernel.bind(args).to_triton_code(config)
         #store compiled triton code according to generated config
@@ -108,7 +118,7 @@ if __name__ == "__main__":
     #rmsnorm_config_block
     rmsnorm_functions = [helion_rms_kernel]
     for func in rmsnorm_functions:
-        autotune(func, rmsnorm_configs)
+        autotune(func, rmsnorm_configs,force_autotune=True)
             
     
     #attention_config_block
