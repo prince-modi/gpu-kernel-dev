@@ -6,8 +6,49 @@ from helion_kernels.rmsnorm.basic_rmsnorm import helion_rms_kernel
 
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
+rmsnorm_configs = [ 
+        (
+            #small config
+            torch.randn((256, 256), dtype= torch.float16, device=DEVICE),
+            torch.randn((256,), dtype= torch.float16, device=DEVICE),
+            1e-5,
+        )
+        (
+            #medium config
+            torch.randn((1024,1024), dtype= torch.float16,device=DEVICE),
+            torch.randn((1024,), dtype= torch.float16,device = DEVICE),
+            1e-5
+        ),
+        (
+            #large config
+            torch.randn((8192,8192), dtype= torch.float16, device=DEVICE),
+            torch.randn((8192,), dtype= torch.float16,device = DEVICE),
+            1e-5
+        )
+]
 
-def generate_tensors(M: list[int], N: list[int], dtype=torch.float32, device=None):
+# attention_configs = [
+#     (
+
+#     ),
+#     (
+
+#     ),
+#     (
+
+#     )
+# ]
+
+def get_signature(args: list) -> str:
+    sig = []
+    for arg in args:
+        if type(arg) is torch.Tensor:
+            sig.append('x'.join(list(arg.shape)))
+    return 'x'.join(sig)
+
+#give attention_configs
+
+def generate_tensors(M: list[int], N: list[int], dtype=torch.float16, device=None):
     tensors = []
 
     if device is None:
@@ -47,21 +88,31 @@ def autotune(kernel, kernel_args=None, M=None, N=None, force_autotune=False):
         kernel_args = generate_tensors(M, N)
 
     for args in kernel_args:
-        signature = str(tensor.size() for tensor in args)
+        signature = get_signature(args)
         config_name = f"configs/{kernel.__name__}-{signature}.json"
         if os.path.exists(config_name) and not force_autotune:
             print(f"Config already exists for argument sizes {signature}.")
             continue
         config = kernel.autotune(args)
         config.save(config_name)
+        compiled_code = kernel.bind(args).to_triton_code(config)
+        #store compiled triton code according to generated config
+        with open(f"configs/{kernel.__name__}-{signature}-triton.txt","w") as f:
+            f.write(compiled_code)
+
 
 
 if __name__ == "__main__":
-    kernel_args = [
-        (
-            torch.randn((400, 800), device="cuda"),
-            torch.randn((800,), device="cuda"),
-            1e-5,
-        )
-    ]
-    autotune(helion_rms_kernel, kernel_args)
+    if(os.path.exists('configs') == False):
+        os.mkdir('configs')
+    #rmsnorm_config_block
+    rmsnorm_functions = [helion_rms_kernel]
+    for func in rmsnorm_functions:
+        autotune(func, rmsnorm_configs)
+            
+    
+    #attention_config_block
+    # attention_functions = []
+    # for func in attention_functions:
+    #     for config in attention_configs:
+    #         autotune(func,config)
