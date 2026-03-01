@@ -81,7 +81,7 @@ rmsnorm_configs = [
             torch.randn((256, 256), dtype= torch.float16, device=DEVICE),
             torch.randn((256,), dtype= torch.float16, device=DEVICE),
             1e-5,
-        )
+        ),
         (
             #medium config
             torch.randn((1024,1024), dtype= torch.float16,device=DEVICE),
