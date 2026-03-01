@@ -3,6 +3,18 @@ import os
 import helion
 from helion.autotuner import FiniteSearch
 
+def retrieve_configs(benchmark_name: str):
+    if os.path.exists('configs') == False:
+        print('Need configs directory to run these tests...')
+    assert os.path.exists('configs')
+    all_configs = os.listdir('configs')
+    filtered_configs = []
+    for conf in all_configs:
+        if benchmark_name in conf and 'json' in conf:
+            filtered_configs.append(helion.Config.load(os.path.join('configs',conf)))
+    return filtered_configs
+
+
 def compile_rms_benchmark(benchmark_name: str, **kwargs):
     global compiled_code
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
@@ -11,11 +23,15 @@ def compile_rms_benchmark(benchmark_name: str, **kwargs):
     w = kwargs['w']
     eps = kwargs['eps']
     bound_kernel = None
+    args = (X,w,eps)
+    configs = None
     if benchmark_name == 'helion_rms_kernel':
-        bound_kernel = helion_rms_kernel.bind((X,w,eps))
+        bound_kernel = helion_rms_kernel.bind(args)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
-    best_config = bound_kernel.autotune()
+    configs = retrieve_configs(benchmark_name)
+    tuner = FiniteSearch(bound_kernel,args,configs)
+    best_config = tuner.autotune()
     return bound_kernel.compile_config(best_config)
 
 def rms_benchmarks(compiled_code, **kwargs):

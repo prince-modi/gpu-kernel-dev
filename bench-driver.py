@@ -52,7 +52,7 @@ else:
     )])
 def rms_benchmark(M: int, N: int, provider: str):
     method = get_rms_benchmark(M,N,provider)
-    ms = triton.testing.do_bench(method(), warmup = warmup_count, rep = repetitions)
+    ms = triton.testing.do_bench(lambda: method(), warmup = warmup_count, rep = repetitions)
     gbps = lambda ms: 2 * M * N * 4 * 1e-9 / (ms * 1e-3)
     return gbps(ms)
 

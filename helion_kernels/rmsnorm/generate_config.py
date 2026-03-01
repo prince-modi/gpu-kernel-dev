@@ -6,6 +6,9 @@ from basic_rmsnorm import helion_rms_kernel
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 def retrieve_configs(benchmark_name: str):
+    if os.path.exists('configs') == False:
+        print('Need configs directory to run these tests...')
+    assert os.path.exists('configs')
     all_configs = os.listdir('configs')
     filtered_configs = []
     for conf in all_configs:

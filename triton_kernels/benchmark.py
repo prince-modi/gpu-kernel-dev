@@ -24,7 +24,8 @@ def rms_benchmarks(benchmark_name: str,**kwargs):
     
     output = torch.empty_like(X, device = DEVICE)
     if benchmark_name == 'rmsnorm_with_loops':
-        BLOCK_SIZE = triton.next_power_of_2(X.shape[1])
+        # BLOCK_SIZE = triton.next_power_of_2(X.shape[1])
+        BLOCK_SIZE = 2048
         rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
