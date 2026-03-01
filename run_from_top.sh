@@ -1,0 +1,11 @@
+#atm only have helion for rmsnorm
+python3 helion_kernels/rmsnorm/generate_config.py
+
+python3 bench-driver.py
+
+rms_kernels=("rms_bench-helion-helion_rms_kernel","rms_bench-torch-rmsnorm","rms_bench-triton-rmsnorm_with_loops","rms_bench-cute-cute_rms_norm") 
+#attn_kernels
+
+./generate_dumps.sh nsys ${rms_kernels[*]}
+./generate_dumps ncu ${rms_kernels[*]}
+
