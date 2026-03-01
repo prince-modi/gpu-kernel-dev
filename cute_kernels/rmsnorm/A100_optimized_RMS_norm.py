@@ -2,6 +2,8 @@
 
 # The objective here is to implement an optimized RMS norm kernel forward using the CuTe library. This implementation is heavily derived from the quack implementation in https://github.com/Dao-AILab/quack/blob/main/quack/rmsnorm.py as well as the tutorial in https://veitner.bearblog.dev/simple-reduction-in-cutedsl/.
 
+# This kernel does not take advantage of the thread block cluster feature of the Hopper architecture.
+
 import math
 import operator
 from functools import partial
@@ -16,6 +18,11 @@ from cutlass import Boolean, Float32, Int32, const_expr
 from cutlass.cute.runtime import from_dlpack
 from cutlass.cutlass_dsl import dsl_user_op
 from cutlass.cute.nvgpu import cpasync
+
+
+# =====================================================================================
+# Copy Utilities
+# =====================================================================================
 
 @dsl_user_op
 def get_copy_atom(
@@ -42,17 +49,6 @@ def copy(
     cute.copy(copy_atom, src, dst, pred=pred, loc=loc, ip=ip, **kwargs)
 
 
-def tiled_copy_1d(
-    dtype: Type[cutlass.Numeric], num_threads: int, num_copy_elems: int = 1, is_async: bool = False
-) -> cute.TiledCopy:
-    num_copy_bits = num_copy_elems * dtype.width
-    copy_op = cpasync.CopyG2SOp() if is_async else cute.nvgpu.CopyUniversalOp()
-    copy_atom = cute.make_copy_atom(copy_op, dtype, num_bits_per_copy=num_copy_bits)
-    thr_layout = cute.make_layout(num_threads)
-    val_layout = cute.make_layout(num_copy_elems)
-    return cute.make_tiled_copy_tv(copy_atom, thr_layout, val_layout)
-
-
 def tiled_copy_2d(
     dtype: Type[cutlass.Numeric],
     threads_per_row: int,
@@ -71,6 +67,10 @@ def tiled_copy_2d(
     val_layout = cute.make_layout((1, num_copy_elems))
     return cute.make_tiled_copy_tv(copy_atom, thr_layout, val_layout)
 
+
+# =====================================================================================
+# Layout Utilities
+# =====================================================================================
 
 @cute.jit
 def predicate_k(tAcA: cute.Tensor, limit: Int32) -> cute.Tensor:
@@ -93,6 +93,10 @@ def expand(a: cute.Tensor, dim: int, size: Int32 | int) -> cute.Tensor:
     stride = (*a.layout.stride[:dim], 0, *a.layout.stride[dim:])
     return cute.make_tensor(a.iterator, cute.make_layout(shape, stride=stride))
 
+
+# =====================================================================================
+# Reduction Utilities
+# =====================================================================================
 
 @cute.jit
 def block_reduce(
@@ -152,6 +156,10 @@ def row_reduce(
     return val
 
 
+# =====================================================================================
+# Configuration
+# =====================================================================================
+
 def _threads_per_row(N):
     for limit, threads in [(64, 8), (128, 16), (3072, 32), (6144, 64), (16384, 128)]:
         if N <= limit:
@@ -182,6 +190,11 @@ def benchmark(compiled, mX, mW, mY, eps):
         iterations=1000,
     )
     print(f"Kernel execution time: {avg_time_us:.4f} us")
+
+
+# =====================================================================================
+# Kernel
+# =====================================================================================
 
 @cute.kernel
 def rms_norm_kernel(
@@ -293,6 +306,10 @@ def rms_norm_kernel(
         pred_copy(tXrO, tXgO)
 
 
+# =====================================================================================
+# Launch
+# =====================================================================================
+
 @cute.jit
 def cute_rms_norm(
     mX: cute.Tensor,
@@ -313,6 +330,10 @@ def cute_rms_norm(
         block=[num_threads, 1, 1],
     )
 
+
+# =====================================================================================
+# Testing
+# =====================================================================================
 
 if __name__ == "__main__":
     device = "cuda"
