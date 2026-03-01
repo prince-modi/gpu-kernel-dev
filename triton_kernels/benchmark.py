@@ -28,7 +28,7 @@ def rms_benchmarks(benchmark_name: str,**kwargs):
         BLOCK_SIZE = 2048
         #can increase denominator to improve performance for larger sizes
         # rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
-        rmsnorm_kernel_3[(triton.cdiv(X.shape[0] / 128),1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
+        rmsnorm_kernel_3[(triton.cdiv(X.shape[0], 128),1,1)](output,X,w,eps,X.shape[0],X.stride(0),BLOCK_SIZE,num_stages,False)
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
 
