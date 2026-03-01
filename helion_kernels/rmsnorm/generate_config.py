@@ -35,6 +35,7 @@ def generate_tensors(M: list[int], N: list[int], dtype=torch.float16, device=Non
 
     return tensors
 
+MAX_GENERATIONS = 20 #consider reducing if want to save time
 
 def autotune(kernel, kernel_args=None, M=None, N=None, force_autotune=False):
     """
@@ -68,7 +69,7 @@ def autotune(kernel, kernel_args=None, M=None, N=None, force_autotune=False):
         if os.path.exists(config_name) and not force_autotune:
             print(f"Config already exists for argument sizes {signature}.")
             continue
-        config = kernel.autotune(args,force=force_autotune)
+        config = kernel.autotune(args,force=force_autotune,max_generations=MAX_GENERATIONS)
         config.save(config_name)
         compiled_code = kernel.bind(args).to_triton_code(config)
         #store compiled triton code according to generated config
