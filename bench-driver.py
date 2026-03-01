@@ -1,10 +1,12 @@
 import triton_kernels.benchmark as tlb
 import helion_kernels.benchmark as hlb
 import torch_kernels.benchmark as torlb
+import cute_kernels.benchmark as curlb
 import triton
 import torch
 import os
 import random
+import cutlass.cute as cute
 
 if torch.cuda.is_available():
     # Use GPU
@@ -17,6 +19,10 @@ else:
     DEVICE = torch.device("cpu")
     print("CUDA not available. Using CPU.")
     os.environ["TRITON_INTERPRET"] = "1"
+
+#these are in ms
+warmup_count = 25 # this is anyways the default for triton, can adjust if feel it helps
+repetitions = 100 #default from triton - can increase if want - number of times kernel runs for measurements
     
 @triton.testing.perf_report(
     [triton.testing.Benchmark(
@@ -49,11 +55,16 @@ def rms_benchmark(M: int, N: int, provider: str):
     dsl_type = split_name[0]
     bench_name = split_name[1]
     if dsl_type == 'triton':
-        ms = triton.testing.do_bench(lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        ms = triton.testing.do_bench(lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps), warmup = warmup_count, rep = repetitions)
     elif dsl_type == 'helion':
-        ms = triton.testing.do_bench(lambda: hlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        ms = triton.testing.do_bench(lambda: hlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps), warmup = warmup_count, rep = repetitions)
     elif dsl_type == 'torch':
-        ms = triton.testing.do_bench(lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps))
+        ms = triton.testing.do_bench(lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps), warmup = warmup_count, rep = repetitions)
+    elif dsl_type == 'cute':
+        compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
+        ms = triton.testing.do_bench(lambda: curlb.rms_benchmark(compiled_code,X=x,w=w,eps=eps),warmup_count = warmup_count,rep = repetitions)
+    elif dsl_type == 'gluon':
+        pass
     else:
         raise Exception(f'{provider} is not yet supported')
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)
