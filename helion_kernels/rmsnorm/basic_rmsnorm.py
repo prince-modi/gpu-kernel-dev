@@ -1,7 +1,18 @@
 import helion
 import torch
 import helion.language as hl
-from generate_config import retrieve_configs
+import os
+
+
+def retrieve_configs(benchmark_name: str):
+  filtered_configs = []
+  if os.path.exists('configs'):
+    all_configs = os.listdir('configs')
+    for conf in all_configs:
+        if benchmark_name in conf and 'json' in conf:
+            filtered_configs.append(helion.Config.load(os.path.join('configs',conf)))
+  return filtered_configs
+
 
 config_list = retrieve_configs('helion_rms_kernel')
 

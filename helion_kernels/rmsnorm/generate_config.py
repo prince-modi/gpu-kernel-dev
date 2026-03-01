@@ -18,7 +18,7 @@ def get_signature(args: list) -> str:
     sig = []
     for arg in args:
         if type(arg) is torch.Tensor:
-            sig.append('x'.join(list(arg.shape)))
+            sig.append('x'.join([str(i) for i in list(arg.shape)]))
     return 'x'.join(sig)
 
 #give attention_configs
