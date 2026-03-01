@@ -1,7 +1,15 @@
 # NOTE: Flash Attention benchmarks require the flash_attn package.
 # Use the wheel finder at https://flashattn.dev/#finder to install the correct
 # version for your CUDA toolkit and PyTorch build, e.g.:
-#   uv pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3%2Bcu128torch2.10-cp312-cp312-linux_x86_64.whl
+#   import torch
+#   import sys
+#   print(torch.version.cuda)
+#   print(torch.__version__)
+#   print(torch.cuda.get_device_name(0))
+#   print(sys.version)
+# Then select the appropriate wheel from https://flashattn.dev/#finder and install it with the following command:
+#   !uv pip install <wheel_name>
+# You can use pip itself, although this may be slower.
 
 from cute_kernels.rmsnorm.A100_optimized_RMS_norm import cute_rms_norm as cute_rms_norm_a100
 from cute_kernels.rmsnorm.H100_optimized_RMS_norm import cute_rms_norm as cute_rms_norm_h100
