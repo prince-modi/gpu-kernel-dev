@@ -30,7 +30,7 @@ else:
 @triton.testing.perf_report(
     [triton.testing.Benchmark(
         x_names=['N'],  # argument names to use as an x-axis for the plot
-        x_vals=[128 * i for i in range(2, 100)],  # different possible values for `x_name`
+        x_vals=[256 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
         line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm'],  #,'helion-helion_rms_kernel' possible values for `line_arg``
         line_names=["Torch", "Triton","Helion","Cute"],  #,"Helion" label name for the lines
@@ -41,7 +41,7 @@ else:
     ),
      triton.testing.Benchmark(
         x_names=['M'],  # argument names to use as an x-axis for the plot
-        x_vals=[128 * i for i in range(2, 100)],  # different possible values for `x_name`
+        x_vals=[256 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
         line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm'],  # 'helion-helion_rms_kernel' possible values for `line_arg``
         line_names=["Torch", "Triton","Helion","Cute"],  #,"Helion" label name for the lines
