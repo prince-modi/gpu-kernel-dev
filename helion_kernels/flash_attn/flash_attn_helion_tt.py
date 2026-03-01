@@ -11,7 +11,6 @@ def retrieve_configs(benchmark_name: str):
     all_configs = os.listdir('configs')
     for conf in all_configs:
         if benchmark_name in conf and 'json' in conf:
-            #WS should have already been checked/confirmed through beginning auto-tuning process
             filtered_configs.append(helion.Config.load(os.path.join('configs',conf)))
   return filtered_configs
 
@@ -32,25 +31,31 @@ def flashatt_fwd(q: Tensor, k: Tensor, v: Tensor) -> Tensor:
     for tile_q in hl.tile(seq_len):
         q_tile = q[tile_q, :]
 
-        l_j = hl.zeros([tile_q], dtype=q.dtype, device=q.device)
+        l_i = hl.zeros([tile_q], dtype=q.dtype, device=q.device)
         m_i = hl.full([tile_q], -float("inf"), dtype=q.dtype, device=q.device)
-        o_j = hl.zeros([tile_q, d_head])
+        acc = hl.zeros([tile_q, d_head])
 
         for tile_kv in hl.tile(seq_len):
             k_tile = k[tile_kv, :]
             v_tile = v[tile_kv, :]
 
             qk = q_tile @ k_tile.T * qk_scale
-
-            m_ij = torch.maximum(m_i, torch.amax(qk, -1))
+            m_ij = torch.amax(qk, 1)
             p = torch.exp(qk - m_ij[:, None])
-            scale_factor = torch.exp(m_i - m_ij)
-            l_j = scale_factor * l_j + torch.sum(p, -1)
+            l_ij = torch.sum(p, 1)
+            m_i_new = torch.maximum(m_i, m_ij)
+            alpha = torch.exp(m_i - m_i_new)
+            beta = torch.exp(m_ij - m_i_new)
 
-            o_j = o_j * scale_factor[:, None] + p @ v_tile
+            l_i_new = alpha * l_i + beta * l_ij
+            scale_factor = beta / l_i_new
+            p = p * scale_factor[:, None]
+            acc_scale = l_i / l_i_new * alpha
+            acc = acc * acc_scale[:, None] + p @ v_tile
 
-            m_i = m_ij
+            l_i = l_i_new
+            m_i = m_i_new
 
-        out[tile_q, :] = o_j / l_j[:, None]
+        out[tile_q, :] = acc
 
     return out

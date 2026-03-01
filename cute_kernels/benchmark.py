@@ -49,7 +49,7 @@ def cute_provide_benchmark(benchmark_name: str,**kwargs):
         #can handle similar to helion + autotune -> for now, thinking of keeping simple and not doing AOT compilation
         compiled_code = compile_rms_benchmark(benchmark_name,kwargs)
         rms_benchmark(compiled_code,kwargs)
-    elif 'flashattn' in benchmark_name:
+    elif 'flashattn' in benchmark_name or 'attn' in benchmark_name:
         raise Exception(f'Received unsupported kernel {benchmark_name}')
     elif 'load' in benchmark_name:
         raise Exception(f'Received unsupported kernel {benchmark_name}')

@@ -6,6 +6,7 @@ import os
 
 def retrieve_configs(benchmark_name: str):
   filtered_configs = []
+  #configs should have already checked if able to use WS
   if os.path.exists('configs'):
     all_configs = os.listdir('configs')
     for conf in all_configs:

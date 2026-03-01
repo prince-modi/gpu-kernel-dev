@@ -13,6 +13,12 @@ import random
 warmup_count = 25 # this is anyways the default for triton, can adjust if feel it helps
 repetitions = 100 #default from triton - can increase if want - number of times kernel runs for measurements
 
+def is_cuda():
+    return triton.runtime.driver.active.get_current_target().backend == "cuda"
+def is_hopper():
+    return is_cuda() and torch.cuda.get_device_capability()[0] == 9
+
+
 if torch.cuda.is_available():
     # Use GPU
     DEVICE = torch.device("cuda:0")
@@ -24,6 +30,15 @@ else:
     DEVICE = torch.device("cpu")
     print("CUDA not available. Using CPU.")
     os.environ["TRITON_INTERPRET"] = "1"
+
+
+line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm']  # 'helion-helion_rms_kernel' possible values for `line_arg``
+line_names=["Torch", "Triton","Helion","Cute"]  #,"Helion" label name for the lines
+styles=[('blue', '-'), ('green', '-'), ('red', '-'),('yellow','-')]  # line styles
+if is_hopper():
+    line_vals.append('tk-tk_rms_norm')
+    line_names.append('thunkit')
+    styles.append(('purple','-'))
 
 
 rms_benchmark_configs = [triton.testing.Benchmark(
@@ -54,7 +69,8 @@ rms_benchmark_configs = [triton.testing.Benchmark(
 def rms_benchmark(M: int, N: int, provider: str):
     method = get_rms_benchmark(M,N,provider)
     ms = triton.testing.do_bench(lambda: method(), warmup = warmup_count, rep = repetitions)
-    gbps = lambda ms: 2 * M * N * 4 * 1e-9 / (ms * 1e-3)
+    #2 for float16 = 2 bytes
+    gbps = lambda ms: 2 * M * N * 2 * 1e-9 / (ms * 1e-3)
     return gbps(ms)
 
 def get_rms_benchmark(M: int, N: int, provider: str):
@@ -74,5 +90,7 @@ def get_rms_benchmark(M: int, N: int, provider: str):
     elif dsl_type == 'cute':
         compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
         return lambda: curlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
+    elif dsl_type == 'thunderkittens' and is_hopper():
+        raise Exception(f'Thunderkittens needs to be placed here!!!')
     else:
         raise Exception(f'{provider} is not yet supported')
