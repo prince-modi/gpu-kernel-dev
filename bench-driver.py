@@ -42,8 +42,8 @@ else:
         args={'N': 4096},  # values for function arguments not in `x_names` and `y_name`
     )])
 def rms_benchmark(M: int, N: int, provider: str):
-    x = torch.randn(M, N, device=DEVICE, dtype=torch.float32)
-    w = torch.randn(N, device=DEVICE, dtype=torch.float32)
+    x = torch.randn(M, N, device=DEVICE, dtype=torch.float16)
+    w = torch.randn(N, device=DEVICE, dtype=torch.float16)
     eps = random.random()
     split_name = provider.split('-')
     dsl_type = split_name[0]
