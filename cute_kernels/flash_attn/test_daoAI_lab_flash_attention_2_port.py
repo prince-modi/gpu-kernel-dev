@@ -1,3 +1,5 @@
+# Bhrugu Bharathi, A16641798, 02/28/2026
+
 import torch
 import sys
 print(torch.version.cuda)
