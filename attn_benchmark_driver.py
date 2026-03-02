@@ -80,13 +80,15 @@ def attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: bool,
     return gbps(ms)
 
 def get_attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: bool, provider: str):
-    q = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
-    k = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
-    v = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
-    eps = random.random()
     split_name = provider.split('-')
     dsl_type = split_name[0]
     bench_name = split_name[1]
+    if dsl_type not in ['triton','helion','torch']:
+        qkv = torch.randn((BATCH,N_CTX,3,H,HEAD_DIM))
+    else:
+        q = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
+        k = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
+        v = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
     if dsl_type == 'triton':
         return lambda: tlb.rms_benchmarks(bench_name,Q=q,K=k,V=v)
     elif dsl_type == 'helion':
@@ -95,8 +97,9 @@ def get_attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: b
     elif dsl_type == 'torch':
         return lambda: torlb.attn_benchmarks(bench_name,Q=q,K=k,V=v)
     elif dsl_type == 'cute':
-        compiled_code = curlb.compile_rms_benchmark(bench_name,Q=q,K=k,V=v)
-        return lambda: curlb.rms_benchmarks(compiled_code,Q=q,K=k,V=v)
+                                                                                #based on helion code - pls confirm
+        compiled_code = curlb.compile_fa2_benchmark(bench_name,qkv = qkv,softmax_scale = 1 / HEAD_DIM ** 0.5)
+        return lambda: compiled_code(qkv = qkv)
     elif dsl_type == 'thunderkittens' and is_hopper():
         raise Exception(f'Thunderkittens needs to be placed here!!!')
     else:
