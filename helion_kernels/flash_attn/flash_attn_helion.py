@@ -4,6 +4,7 @@ import torch
 from torch import Tensor
 import os
 
+#based on triton example and https://github.com/pytorch/helion/blob/main/examples/attention.py
 
 def retrieve_configs(benchmark_name: str):
   filtered_configs = []
@@ -28,38 +29,38 @@ def flashatt_fwd(q: Tensor, k: Tensor, v: Tensor) -> Tensor:
     qk_scale = 1 / (d_head ** 0.5)
     d_head = hl.specialize(q.size(-1))
 
-    out = torch.zeros_like(q, dtype=q.dtype, device=q.device)
+    #looks like 4D MM is not possible, which is why we must use views to support the mm process
+    q_view = q.reshape([-1, seq_len, d_head])
+    v_view = v.reshape([-1, seq_len, d_head])
+    k_view = k.reshape([-1,seq_len,d_head]).transpose(1,2)
+    out = torch.zeros_like(q_view, dtype=q.dtype, device=q.device)
 
-    #modeling after triton's grid -> first tile along sequence length (rowwise partition)
-    #then partition based on batch * h -> let helion autotune and figure it out...
-    #lets not define BLOCK size
-    #note that cuda/triton grid has different frequency of change as moving from L to R
-    #assuming based on triton's grid, tile_batch_head rarely changed compared to tile_q
-    for tile_batch,tile_head in hl.tile([batch,h]):
-        for tile_q in hl.tile(seq_len):
-            q_tile = q[tile_batch,tile_head,tile_q,:]
-            l_i = hl.zeros([tile_batch,tile_head,tile_q], dtype=q.dtype, device=q.device)
-            m_i = hl.full([tile_batch,tile_head,tile_q], -float("inf"), dtype=q.dtype, device=q.device)
-            acc = hl.zeros([tile_batch,tile_head,tile_q, d_head])
-            for tile_kv in hl.tile(seq_len):
-                k_tile = k[tile_batch,tile_head,tile_kv,:]
-                v_tile = v[tile_batch,tile_head,tile_kv,:]
+    
 
-                qk = torch.bmm(q_tile, k_tile.T) * qk_scale
-                m_ij = torch.amax(qk, -1)
-                p = torch.exp(qk - m_ij[:, None])
-                l_ij = torch.sum(p, -1)
-                m_i_new = torch.maximum(m_i, m_ij)
-                alpha = torch.exp(m_i - m_i_new)
-                beta = torch.exp(m_ij - m_i_new)
+    for tile_batch, tile_q in hl.tile([q_view.size(0),seq_len]):
+        q_tile = q_view[tile_batch,tile_q,:]
+        l_i = hl.zeros([tile_batch,tile_q], dtype=q.dtype, device=q.device)
+        m_i = hl.full([tile_batch,tile_q], -float("inf"), dtype=q.dtype, device=q.device)
+        acc = hl.zeros([tile_batch,tile_q, d_head])
+        for tile_kv in hl.tile(seq_len):
+            k_tile = k_view[tile_batch,:,tile_kv]
+            v_tile = v_view[tile_batch,tile_kv,:]
+            qk = torch.bmm(q_tile,k_tile) * qk_scale
 
-                l_i_new = alpha * l_i + beta * l_ij
-                scale_factor = beta / l_i_new
-                p = p * scale_factor[:, None]
-                acc_scale = l_i / l_i_new * alpha
-                acc = acc * acc_scale[:, None] + p @ v_tile
+            m_ij = torch.amax(qk, -1)
+            p = torch.exp(qk - m_ij[:,:, None])
+            l_ij = torch.sum(p, -1)
+            m_i_new = torch.maximum(m_i, m_ij)
+            alpha = torch.exp(m_i - m_i_new)
+            beta = torch.exp(m_ij - m_i_new)
 
-                l_i = l_i_new
-                m_i = m_i_new
-            out[tile_batch,tile_head,tile_q,:] = acc
+            l_i_new = alpha * l_i + beta * l_ij
+            scale_factor = beta / l_i_new
+            p = p * scale_factor[:,:, None]
+            acc_scale = l_i / l_i_new * alpha
+            acc = acc * acc_scale[:,:, None] + p @ v_tile
+
+            l_i = l_i_new
+            m_i = m_i_new
+        out[tile_batch,tile_q,:] = acc
     return out
