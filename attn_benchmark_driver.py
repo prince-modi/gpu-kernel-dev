@@ -31,12 +31,8 @@ else:
     print("CUDA not available. Using CPU.")
     os.environ["TRITON_INTERPRET"] = "1"
 
-bs_seqlen_vals = [(32, 512), (16, 1024), (8, 2048), (4, 4096), (2, 8192), (1, 16384)]
 #assume causal is false
 headdim_vals = [64, 128]
-dim = 2048
-dropout_p = 0.0
-
 BATCH, N_HEADS = 4, 32
 dtype = torch.float16
 # vary seq length for fixed head and batch=4
@@ -53,7 +49,7 @@ if is_hopper():
 flash_attn_bench_configs = []
 
 
-for HEAD_DIM in [64, 128]:
+for HEAD_DIM in headdim_vals:
     enable_ws = is_hopper()
     for warp_specialize in [False, True] if enable_ws else [False]:
         flash_attn_bench_configs.append(
@@ -76,10 +72,11 @@ for HEAD_DIM in [64, 128]:
 def attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: bool, provider: str):
     method = get_attn_benchmark(N_CTX,H,BATCH,HEAD_DIM,warp_specialize, provider)
     ms = triton.testing.do_bench(lambda: method(), warmup = warmup_count, rep = repetitions)
-    gbps = lambda ms: 2 * M * N * 2 * 1e-9 / (ms * 1e-3)
-    return gbps(ms)
+    #as per test_daoAI_lab file
+    tflops = lambda ms: (4.0 * BATCH * H * (N_CTX * N_CTX) * HEAD_DIM) / (ms * 1e-3) / 1e12
+    return tflops(ms)
 
-def get_attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: bool, provider: str):
+def get_attn_benchmark(BATCH: int,H: int,N_CTX: int,HEAD_DIM: int ,warp_specialize: bool, provider: str):
     split_name = provider.split('-')
     dsl_type = split_name[0]
     bench_name = split_name[1]
