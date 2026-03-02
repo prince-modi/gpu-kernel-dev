@@ -70,7 +70,7 @@ for HEAD_DIM in headdim_vals:
 
 @triton.testing.perf_report(flash_attn_bench_configs)
 def attn_benchmark(N_CTX: int,H,BATCH: int,HEAD_DIM: int ,warp_specialize: bool, provider: str):
-    method = get_attn_benchmark(N_CTX,H,BATCH,HEAD_DIM,warp_specialize, provider)
+    method = get_attn_benchmark(BATCH,H,N_CTX,HEAD_DIM,warp_specialize, provider)
     ms = triton.testing.do_bench(lambda: method(), warmup = warmup_count, rep = repetitions)
     #as per test_daoAI_lab file
     tflops = lambda ms: (4.0 * BATCH * H * (N_CTX * N_CTX) * HEAD_DIM) / (ms * 1e-3) / 1e12
@@ -87,7 +87,7 @@ def get_attn_benchmark(BATCH: int,H: int,N_CTX: int,HEAD_DIM: int ,warp_speciali
         k = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
         v = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
     if dsl_type == 'triton':
-        return lambda: tlb.rms_benchmarks(bench_name,Q=q,K=k,V=v)
+        return lambda: tlb.attn_benchmarks(bench_name,Q=q,K=k,V=v)
     elif dsl_type == 'helion':
         compiled_code = hlb.compile_attn_benchmark(bench_name,Q=q,K=k,V=v)
         return lambda: hlb.attn_benchmarks(compiled_code,Q=q,K=k,V=v)
