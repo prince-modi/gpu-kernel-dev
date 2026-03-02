@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 method = get_rms_benchmark(1024,1024,kernel_test_name)
                 method()
                 # print(f'Running {kernel_test_name} from {benchmark_name}; M = {args.M[0]} ; N= {args.N[0]}')
-            elif benchmark_name == 'flashattn_bench':
+            elif benchmark_name == 'attn_bench':
                 method = get_attn_benchmark(4096,32,4,128,is_hopper(),kernel_test_name)
                 method()
             else:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             for bench in benchmark_names:
                 if bench == 'rms_bench':
                     rms_benchmark.run(show_plots=True, print_data=True,save_path = "rms-results")
-                elif bench == 'flashattn_bench':
+                elif bench == 'attn_bench':
                     attn_benchmark.run(show_plots=True,print_data = True, save_path = "attn-results")
                 else:
                     raise Exception(f'Benchmark {bench} has no corresponding function. Please Add...')
