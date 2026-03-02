@@ -4,14 +4,19 @@ import os
 import argparse
 import sys
 from rms_benchmark_driver import rms_benchmark, get_rms_benchmark
+from attn_benchmark_driver import attn_benchmark, get_attn_benchmark, is_hopper
 
 
     
 if __name__ == "__main__":
+    if os.path.exists("rms-results") == False:
+        os.mkdir("rms-results")
+    if os.path.exists("attn-results") == False:
+        os.mkdir("attn-results")
+
     if len(sys.argv) == 1:
-        if os.path.exists("results") == False:
-            os.mkdir("results")
-        rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+        rms_benchmark.run(show_plots=True, print_data=True,save_path = "rms-results")
+        attn_benchmark.run(show_plots=True,print_data = True, save_path = "attn-results")
         # print('Running rms_benchmark')
         #add other benchmarks here
     else:
@@ -36,8 +41,8 @@ if __name__ == "__main__":
                 method()
                 # print(f'Running {kernel_test_name} from {benchmark_name}; M = {args.M[0]} ; N= {args.N[0]}')
             elif benchmark_name == 'flashattn_bench':
-              #can be defined here
-              pass
+                method = get_attn_benchmark(4096,32,4,128,is_hopper(),kernel_test_name)
+                method()
             else:
                 print(f'Benchmark {benchmark_name} has not been identified. Exiting...')
                 sys.exit(1)
@@ -46,9 +51,8 @@ if __name__ == "__main__":
             print(benchmark_names)
             for bench in benchmark_names:
                 if bench == 'rms_bench':
-                    rms_benchmark.run(show_plots=True, print_data=True,save_path = "results")
+                    rms_benchmark.run(show_plots=True, print_data=True,save_path = "rms-results")
                 elif bench == 'flashattn_bench':
-                    #can be defined here
-                    raise Exception(f'Need to add benchmark flashattn_bench here. Exiting...')
+                    attn_benchmark.run(show_plots=True,print_data = True, save_path = "attn-results")
                 else:
                     raise Exception(f'Benchmark {bench} has no corresponding function. Please Add...')
