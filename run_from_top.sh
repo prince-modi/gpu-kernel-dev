@@ -1,5 +1,6 @@
 #atm only have helion for rmsnorm
 python3 helion_kernels/rmsnorm/generate_config.py
+python3 helion_kernels/flash_attn/generate_config.py
 
 python3 bench-driver.py
 
