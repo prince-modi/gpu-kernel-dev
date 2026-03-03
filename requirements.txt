@@ -25,3 +25,4 @@ jax==0.7.2
 jax-cuda12-pjrt==0.7.2
 jax-cuda12-plugin==0.7.2
 jaxlib==0.7.2
+nvidia-cutlass-dsl==4.4.1

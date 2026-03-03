@@ -1,6 +1,7 @@
 import triton_kernels.benchmark as tlb
 import helion_kernels.benchmark as hlb
 import torch_kernels.benchmark as torlb
+import gluon_kernels.benchmark as gln
 import cutlass.cute as cute
 import cute_kernels.benchmark as curlb
 import triton
@@ -32,9 +33,9 @@ else:
     os.environ["TRITON_INTERPRET"] = "1"
 
 
-line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm']  # 'helion-helion_rms_kernel' possible values for `line_arg``
-line_names=["Torch", "Triton","Helion","Cute"]  #,"Helion" label name for the lines
-styles=[('blue', '-'), ('green', '-'), ('red', '-'),('yellow','-')]  # line styles
+line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm','gluon-rms_norm']  # 'helion-helion_rms_kernel' possible values for `line_arg``
+line_names=["Torch", "Triton","Helion","Cute","Gluon"]  #,"Helion" label name for the lines
+styles=[('blue', '-'), ('green', '-'), ('red', '-'),('yellow','-'),('cyan','-')]  # line styles
 if is_hopper():
     line_vals.append('tk-tk_rms_norm')
     line_names.append('thunkit')
@@ -95,6 +96,8 @@ def get_rms_benchmark(M: int, N: int, provider: str):
     elif dsl_type == 'cute':
         compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
         return lambda: curlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
+    elif dsl_type == 'gluon':
+        return lambda: gln.rms_benchmarks(bench_name, X=x, w=w, eps=eps)
     elif dsl_type == 'thunderkittens' and is_hopper():
         raise Exception(f'Thunderkittens needs to be placed here!!!')
     else:
