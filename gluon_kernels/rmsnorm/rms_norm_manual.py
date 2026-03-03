@@ -32,24 +32,33 @@ def rms_norm_kernel(
     row_start = gl.program_id(0)
     row_step = gl.num_programs(0)
 
-    for row_id in range(row_start, n_rows, row_step):
-        input_start_ptr = inp_ptr + row_id * input_stride
-        offsets = gl.arange(0, BLOCK_SIZE, layout=layout)
+    for row_id in range(row_start, n_rows, row_step): 
+        input_start_ptr = inp_ptr + row_id * input_stride 
+        inp_sq_sum_per_block = gl.zeros([BLOCK_SIZE], dtype=gl.float32, layout=layout) 
         
-        inp_ptrs = input_start_ptr + offsets
-
-        mask = inp_ptrs < n_cols
-
-        inp = gl.load(inp_ptrs, mask=mask, other=0.0)
-        gamma = gl.load(gamma_ptr + offsets, mask=mask, other=1.0)
-
-        ## This makes the assumption that the entire array length has been computed within this program
-        rms = gl.sqrt(gl.sum(inp * inp) / n_cols + epsilon)
-        rms_norm = inp / rms * gamma
-
-        output_start_ptr = out_ptr + row_id * output_stride
-        output_ptrs = output_start_ptr + offsets
-        gl.store(output_ptrs, rms_norm, mask=mask)
+        for col_index_start in range(0, n_cols, BLOCK_SIZE): 
+            offsets = col_index_start + gl.arange(0, BLOCK_SIZE, layout=layout) 
+            inp_ptrs = input_start_ptr + offsets 
+            
+            mask = offsets < n_cols 
+            
+            inp = gl.load(inp_ptrs, mask=mask, other=0.0) 
+            inp_sq_sum_per_block += inp * inp 
+            
+        rms = gl.sqrt(gl.sum(inp_sq_sum_per_block) / n_cols + epsilon) 
+        
+        output_start_ptr = out_ptr + row_id * output_stride 
+        for col_index_start in range(0, n_cols, BLOCK_SIZE): 
+            offsets = col_index_start + gl.arange(0, BLOCK_SIZE, layout=layout) 
+            output_ptrs = output_start_ptr + offsets 
+            
+            mask = offsets < n_cols 
+            
+            gamma = gl.load(gamma_ptr + offsets, mask=mask, other=1.0) 
+            inp = gl.load(input_start_ptr + offsets, mask=mask, other=0.0) 
+            rms_norm = inp / rms * gamma 
+            
+            gl.store(output_ptrs, rms_norm, mask=mask)
 
 
 def rms_norm(x, eps=None, gamma=None):
@@ -113,7 +122,3 @@ def rms_norm(x, eps=None, gamma=None):
     )
 
     return y
-
-    
-
-
