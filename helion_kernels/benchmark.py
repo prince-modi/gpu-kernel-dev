@@ -42,7 +42,7 @@ def compile_rms_benchmark(benchmark_name: str, **kwargs):
     return _compile_code(benchmark_name,bound_kernel,args)
 
 def compile_attn_benchmark(benchmark_name:str, **kwargs):
-    args = check_args_attn(kwargs)
+    args = check_args_attn(**kwargs)
     bound_kernel = None
     if benchmark_name == 'flashatt_fwd':
         bound_kernel = flashatt_fwd.bind(args)
