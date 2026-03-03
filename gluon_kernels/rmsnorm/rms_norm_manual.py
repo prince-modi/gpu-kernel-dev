@@ -13,6 +13,7 @@ THREADS_PER_WARP = properties["warpSize"]
 
 # This is an auto tunable property using @triton.autotune
 MAX_WARP_PER_CTA_COUNT = 8
+MAX_BLOCK_SIZE = 4096
 
 @gluon.jit
 def rms_norm_kernel(
@@ -71,7 +72,7 @@ def rms_norm(x, eps=None, gamma=None):
     if gamma is None:
         gamma = torch.ones((n_cols, ), device=x.device, dtype=x.dtype)
 
-    block_size = triton.next_power_of_2(n_cols)
+    block_size = min(MAX_BLOCK_SIZE, triton.next_power_of_2(n_cols))
     warp_per_cta = max(1, min(MAX_WARP_PER_CTA_COUNT, block_size // THREADS_PER_WARP))
     size_per_thread = max(1, block_size // (THREADS_PER_WARP * warp_per_cta))
 
