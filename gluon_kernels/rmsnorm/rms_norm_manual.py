@@ -52,19 +52,19 @@ def rms_norm_kernel(
         gl.store(output_ptrs, rms_norm, mask=mask)
 
 
-def rms_norm(x, epsilon=None, gamma=None):
+def rms_norm(x, eps=None, gamma=None):
 
     n_rows, n_cols = x.shape
 
-    if epsilon is None:
-        epsilon = 1e-6
+    if eps is None:
+        eps = 1e-6
     
     if gamma is None:
         gamma = torch.ones((n_cols, ), device=x.device, dtype=x.dtype)
 
     block_size = triton.next_power_of_2(n_cols)
-    warp_per_cta = gl.max(1, gl.min(MAX_WARP_PER_CTA_COUNT, block_size // THREADS_PER_WARP))
-    size_per_thread = gl.max(1, block_size // (THREADS_PER_WARP * warp_per_cta))
+    warp_per_cta = max(1, min(MAX_WARP_PER_CTA_COUNT, block_size // THREADS_PER_WARP))
+    size_per_thread = max(1, block_size // (THREADS_PER_WARP * warp_per_cta))
 
     layout = gl.BlockedLayout(
         size_per_thread=[size_per_thread],
@@ -75,33 +75,34 @@ def rms_norm(x, epsilon=None, gamma=None):
 
     y = torch.empty_like(x)
 
-    # Compile the kernel to get info about register assignments
-    kernel = rms_norm_kernel(
+    kernel = rms_norm_kernel.warmup(
         x,
         y,
-        epsilon,
+        eps,
         gamma,
         n_rows,
         n_cols,
         x.stride(0),
         y.stride(0),
         block_size,
-        layout
+        layout,
+        num_warps=warp_per_cta,
+        grid=(1,)
     )
-    kernel.__init_handles()
+    kernel._init_handles()
     n_regs = kernel.n_regs
-    size_smem_per_CTA = kernel.shared
+    size_smem_per_CTA = kernel.metadata.shared
 
-    operations = gl.min(NUM_REGS // (n_regs * THREADS_PER_WARP * warp_per_cta), 
+    operations = min(NUM_REGS // (n_regs * THREADS_PER_WARP * warp_per_cta), 
         SIZE_SMEM // size_smem_per_CTA)
     hardware_bottleneck = NUM_SM * operations
 
-    grid = (gl.min(hardware_bottleneck, n_rows),)
+    grid = (min(hardware_bottleneck, n_rows),1,1)
 
-    rms_norm[grid](
+    kernel[grid](
         x,
         y,
-        epsilon,
+        eps,
         gamma,
         n_rows,
         n_cols,
