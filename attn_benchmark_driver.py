@@ -12,6 +12,9 @@ import triton_kernels.benchmark as tlb
 
 # based on https://github.com/triton-lang/triton/blob/main/python/tutorials/06-fused-attention.py
 
+properties = torch.cuda.get_device_properties()
+major_minor_version = properties.major * 10 + properties.minor
+
 
 def is_cuda():
     return triton.runtime.driver.active.get_current_target().backend == "cuda"
@@ -115,6 +118,8 @@ def get_attn_benchmark(
         compiled_code = hlb.compile_attn_benchmark(bench_name, Q=q, K=k, V=v)
         return lambda: hlb.attn_benchmarks(compiled_code, Q=q, K=k, V=v)
     elif dsl_type == "torch":
+        if major_minor_version not in range(80,122):
+            raise Exception(f'Version {major_minor_version} will not run Flash Attention. Exiting...')
         return lambda: torlb.attn_benchmarks(bench_name, Q=q, K=k, V=v)
     elif dsl_type == "cute":
         # based on helion code - pls confirm
