@@ -70,6 +70,9 @@ for HEAD_DIM in headdim_vals:
                 x_vals=[2**i for i in range(10, 15)],
                 line_arg="provider",
                 ylabel="TFLOPS",
+                line_vals=line_vals,  #,'helion-helion_rms_kernel' possible values for `line_arg``
+                line_names=line_names,  #,"Helion" label name for the lines
+                styles=styles,  # line styles
                 plot_name=f"fused-attention-batch{BATCH}-head{N_HEADS}-d{HEAD_DIM}-warp_specialize={warp_specialize}",
                 args={
                     "H": N_HEADS,
