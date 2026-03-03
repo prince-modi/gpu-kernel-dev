@@ -1,2 +1,11 @@
 __pycache__/
 .claude/
+rms-results/
+attn-results/
+results/
+ncu-reports/
+ncu-plots/
+*.rep
+*.rep.ncu-rep
+*.nsys-rep
+configs/

@@ -29,6 +29,15 @@ def _resolve_gpu(kwargs):
         raise ValueError(f"Unsupported gpu={gpu!r}. Choose from {list(_RMS_KERNELS)}")
     return _RMS_KERNELS[gpu]
 
+
+def _get_gpu_arch():
+    """Get target SM arch for CUTLASS. Use sm_86 on Ada (sm_89) for compatibility."""
+    if not torch.cuda.is_available():
+        return "sm_80"  # fallback
+    major, minor = torch.cuda.get_device_capability()
+    arch = f"sm_{major}{minor}"
+    return "sm_86" if arch == "sm_89" else arch  # Ada can run sm_86 binaries
+
 def compile_rms_benchmark(benchmark_name: str, **kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')
@@ -46,12 +55,17 @@ def compile_rms_benchmark(benchmark_name: str, **kwargs):
     mY = from_dlpack(y, assumed_align=16)
 
     kernel_fn = _resolve_gpu(kwargs)
-    if benchmark_name == 'optimized_RMS_norm':
-        return cute.compile(kernel_fn, mX, mW, mY, X.shape[0], w.shape[0], Float32(eps))
+    if benchmark_name in ('optimized_RMS_norm', 'cute_rms_norm'):
+        gpu_arch = kwargs.get('gpu_arch') or _get_gpu_arch()
+        options = f"--gpu-arch {gpu_arch}"
+        return cute.compile(
+            kernel_fn, mX, mW, mY, X.shape[0], w.shape[0], Float32(eps),
+            options=options,
+        )
     else:
         raise Exception(f'No kernel with name {benchmark_name}')
 
-def rms_benchmark(compiled_code, **kwargs):
+def rms_benchmarks(compiled_code, **kwargs):
     if 'X' not in kwargs or 'w' not in kwargs or 'eps' not in kwargs:
         raise Exception(f'Expected arguments (X,w,eps) are not in given arguments')
     X = kwargs['X']
@@ -66,7 +80,7 @@ def rms_benchmark(compiled_code, **kwargs):
     mX = from_dlpack(X, assumed_align=16)
     mW = from_dlpack(w, assumed_align=16)
     mY = from_dlpack(y, assumed_align=16)
-    compiled_code(mX, mW, mY, X.shape[0], w.shape[0], Float32(eps))
+    compiled_code(mX, mW, mY, Float32(eps))
 
 # ---------------------------------------------------------------------------
 # Flash Attention 2 (via flash_attn library)
@@ -110,7 +124,7 @@ def fa2_benchmark(compiled_code, **kwargs):
 def cute_provide_benchmark(benchmark_name: str, **kwargs):
     if 'rms' in benchmark_name:
         compiled_code = compile_rms_benchmark(benchmark_name, **kwargs)
-        rms_benchmark(compiled_code, **kwargs)
+        rms_benchmarks(compiled_code, **kwargs)
     elif 'flashattn' in benchmark_name or 'attn' in benchmark_name:
         compiled_code = compile_fa2_benchmark(benchmark_name, **kwargs)
         fa2_benchmark(compiled_code, **kwargs)

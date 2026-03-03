@@ -35,14 +35,11 @@ def rms_benchmarks(benchmark_name: str, **kwargs):
 
     output = torch.empty_like(X, device=DEVICE)
     if benchmark_name == "rmsnorm_with_loops":
-        # BLOCK_SIZE = triton.next_power_of_2(X.shape[1])
         BLOCK_SIZE = 2048
-        NUMBER_OF_RUN_WARPS_PER_SM = 4 #know that abt 4 warps run in one instance
-        ROW_INTERVAL = triton.cdiv(X.shape[0],kwargs["SMS_COUNT"] * NUMBER_OF_RUN_WARPS_PER_SM)
-        # can increase denominator to improve performance for larger sizes
-        # rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
-        rmsnorm_kernel_3[(ROW_INTERVAL, 1, 1)](
-            output, X, w, eps, X.shape[0], X.stride(0), ROW_INTERVAL,BLOCK_SIZE, num_stages, False
+        # One block per row for full parallelism (was ROW_INTERVAL which underutilized GPU)
+        n_row = X.shape[0]
+        rmsnorm_kernel_3[(n_row, 1, 1)](
+            output, X, w, eps, n_row, X.stride(0), n_row, BLOCK_SIZE, num_stages, False
         )
     else:
         raise Exception(f"No kernel with name {benchmark_name}")

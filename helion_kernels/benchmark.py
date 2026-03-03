@@ -4,6 +4,15 @@ import os
 import helion
 from helion.autotuner import FiniteSearch
 
+def _get_signature(args):
+    """Shape signature for config lookup (e.g. 1024x1024x1024 for RMS X(M,N), w(N))."""
+    import torch
+    sig = []
+    for arg in args:
+        if isinstance(arg, torch.Tensor):
+            sig.append('x'.join(str(i) for i in arg.shape))
+    return 'x'.join(sig)
+
 def retrieve_configs(benchmark_name: str):
     if os.path.exists('configs') == False:
         print('Need configs directory to run these tests...')
@@ -16,9 +25,19 @@ def retrieve_configs(benchmark_name: str):
     return filtered_configs
 
 def _compile_code(benchmark_name: str, bound_kernel, args):
+    skip_autotune = os.environ.get('HELION_SKIP_AUTOTUNE', '').lower() in ('1', 'true', 'yes')
     configs = retrieve_configs(benchmark_name)
-    tuner = FiniteSearch(bound_kernel,args,configs)
-    best_config = tuner.autotune()
+    if skip_autotune and configs:
+        # Use shape-matching config for profiling (avoids wrong-config recompilation)
+        sig = _get_signature(args)
+        config_path = os.path.join('configs', f'{benchmark_name}-{sig}.json')
+        if os.path.exists(config_path):
+            best_config = helion.Config.load(config_path)
+        else:
+            best_config = configs[0]
+    else:
+        tuner = FiniteSearch(bound_kernel, args, configs)
+        best_config = tuner.autotune()
     return bound_kernel.compile_config(best_config)
 
 def check_args_rms(**kwargs):

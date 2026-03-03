@@ -46,7 +46,7 @@ def rms_norm_kernel(
             inp = gl.load(inp_ptrs, mask=mask, other=0.0) 
             inp_sq_sum_per_block += inp * inp 
             
-        rms = gl.sqrt(gl.sum(inp_sq_sum_per_block) / n_cols + epsilon) 
+        rms = gl.sqrt(gl.sum(inp_sq_sum_per_block, axis=0) / n_cols + epsilon) 
         
         output_start_ptr = out_ptr + row_id * output_stride 
         for col_index_start in range(0, n_cols, BLOCK_SIZE): 

@@ -1,13 +1,48 @@
+import os
+import random
+
+import torch
+
+# Set CUTE_DSL_ARCH before importing CUTLASS (sm_89 has no valid engine, sm_86 crashes on Ada)
+_GPU_ARCH = ""
+_CUTE_SUPPORTED = True
+if torch.cuda.is_available():
+    major, minor = torch.cuda.get_device_capability()
+    _GPU_ARCH = f"sm_{major}{minor}"
+    if _GPU_ARCH == "sm_89":
+        # CUTLASS DSL fails on Ada (sm_89): no sm_89 engine, sm_86 yields CUDA_ERROR_INVALID_VALUE
+        _CUTE_SUPPORTED = False
+        os.environ["CUTE_DSL_ARCH"] = "sm_86"  # set for any CUTE imports, but we won't benchmark it
+    else:
+        os.environ.setdefault("CUTE_DSL_ARCH", _GPU_ARCH)
+
+def _get_line_vals():
+    base = ['torch-rmsnorm', 'triton-rmsnorm_with_loops', 'helion-helion_rms_kernel']
+    if _CUTE_SUPPORTED:
+        base.append('cute-cute_rms_norm')
+    base.append('gluon-rms_norm')
+    return base
+
+def _get_line_names():
+    base = ["Torch", "Triton", "Helion"]
+    if _CUTE_SUPPORTED:
+        base.append("Cute")
+    base.append("Gluon")
+    return base
+
+def _get_styles():
+    base = [('blue', '-'), ('green', '-'), ('red', '-')]
+    if _CUTE_SUPPORTED:
+        base.append(('yellow', '-'))
+    base.append(('cyan', '-'))
+    return base
+
+import triton
 import triton_kernels.benchmark as tlb
 import helion_kernels.benchmark as hlb
 import torch_kernels.benchmark as torlb
 import gluon_kernels.benchmark as gln
-import cutlass.cute as cute
 import cute_kernels.benchmark as curlb
-import triton
-import torch
-import os
-import random
 
 
 #these are in ms
@@ -33,22 +68,22 @@ else:
     os.environ["TRITON_INTERPRET"] = "1"
 
 
-line_vals=['torch-rmsnorm','triton-rmsnorm_with_loops','helion-helion_rms_kernel','cute-cute_rms_norm','gluon-rms_norm']  # 'helion-helion_rms_kernel' possible values for `line_arg``
-line_names=["Torch", "Triton","Helion","Cute","Gluon"]  #,"Helion" label name for the lines
-styles=[('blue', '-'), ('green', '-'), ('red', '-'),('yellow','-'),('cyan','-')]  # line styles
+line_vals = _get_line_vals()
+line_names = _get_line_names()
+styles = _get_styles()
 if is_hopper():
-    line_vals.append('tk-tk_rms_norm')
-    line_names.append('thunkit')
-    styles.append(('purple','-'))
+    line_vals = list(line_vals) + ['tk-tk_rms_norm']
+    line_names = list(line_names) + ['thunkit']
+    styles = list(styles) + [('purple', '-')]
 
 
 rms_benchmark_configs = [triton.testing.Benchmark(
         x_names=['N'],  # argument names to use as an x-axis for the plot
         x_vals=[256 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=line_vals,  #,'helion-helion_rms_kernel' possible values for `line_arg``
-        line_names=line_names,  #,"Helion" label name for the lines
-        styles=styles,  # line styles
+        line_vals=line_vals,
+        line_names=line_names,
+        styles=styles,
         ylabel="GB/s",  # label name for the y-axis
         plot_name="RMS-Norm-With-Varying-N",  # name for the plot. Used also as a file name for saving the plot.
         args={'M': 4096},  # values for function arguments not in `x_names` and `y_name`
@@ -57,9 +92,9 @@ rms_benchmark_configs = [triton.testing.Benchmark(
         x_names=['M'],  # argument names to use as an x-axis for the plot
         x_vals=[256 * i for i in range(2, 100)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=line_vals,  #,'helion-helion_rms_kernel' possible values for `line_arg``
-        line_names=line_names,  #,"Helion" label name for the lines
-        styles=styles,  # line styles
+        line_vals=line_vals,
+        line_names=line_names,
+        styles=styles,
         ylabel="GB/s",  # label name for the y-axis
         plot_name="RMS-Norm-With-Varying-M",  # name for the plot. Used also as a file name for saving the plot.
         args={'N': 4096},  # values for function arguments not in `x_names` and `y_name`

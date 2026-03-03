@@ -15,8 +15,8 @@ if __name__ == "__main__":
         os.mkdir("attn-results")
 
     if len(sys.argv) == 1:
-        rms_benchmark.run(show_plots=True, print_data=True,save_path = "rms-results")
-        attn_benchmark.run(show_plots=True,print_data = True, save_path = "attn-results")
+        rms_benchmark.run(show_plots=False, print_data=False, save_path="rms-results")
+        attn_benchmark.run(show_plots=False, print_data=False, save_path="attn-results")
         # print('Running rms_benchmark')
         #add other benchmarks here
     else:
@@ -34,12 +34,10 @@ if __name__ == "__main__":
             benchmark_name = split_string[0].lower()
             kernel_test_name = split_string[1].lower()
             if benchmark_name == 'rms_bench':
-                # if len(args.M) != 1 or len(args.N) != 1:
-                #     raise Exception(f'Require 1 M and N value, not len(M) = {len(args.M)} and len(N) = {len(args.N)}')
-                #for sake of completion, just hardcoding M, N; either manually adjust or find another way to automate (another python script instead of bash)
-                method = get_rms_benchmark(1024,1024,kernel_test_name)
+                M = args.M[0] if args.M and len(args.M) == 1 else 1024
+                N = args.N[0] if args.N and len(args.N) == 1 else 1024
+                method = get_rms_benchmark(M, N, kernel_test_name)
                 method()
-                # print(f'Running {kernel_test_name} from {benchmark_name}; M = {args.M[0]} ; N= {args.N[0]}')
             elif benchmark_name == 'attn_bench':
                 method = get_attn_benchmark(4096,32,4,128,is_hopper(),kernel_test_name)
                 method()
@@ -51,8 +49,8 @@ if __name__ == "__main__":
             print(benchmark_names)
             for bench in benchmark_names:
                 if bench == 'rms_bench':
-                    rms_benchmark.run(show_plots=True, print_data=True,save_path = "rms-results")
+                    rms_benchmark.run(show_plots=False, print_data=False, save_path="rms-results")
                 elif bench == 'attn_bench':
-                    attn_benchmark.run(show_plots=True,print_data = True, save_path = "attn-results")
+                    attn_benchmark.run(show_plots=False, print_data=False, save_path="attn-results")
                 else:
                     raise Exception(f'Benchmark {bench} has no corresponding function. Please Add...')
