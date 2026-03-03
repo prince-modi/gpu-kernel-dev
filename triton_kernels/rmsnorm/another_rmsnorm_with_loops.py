@@ -2,12 +2,12 @@ import triton
 import triton.language as tl
 
 @triton.jit
-def rmsnorm_kernel_3(output_ptr,input_ptr,w_ptr,eps,n_row,input_row_stride,BLOCK_SIZE: tl.constexpr, num_stages: tl.constexpr, warp_specialize: tl.constexpr):
+def rmsnorm_kernel_3(output_ptr,input_ptr,w_ptr,eps,n_row,input_row_stride,ROW_INTERVAL:tl.constexpr, BLOCK_SIZE: tl.constexpr, num_stages: tl.constexpr, warp_specialize: tl.constexpr):
     # Each program handles one row
     row = tl.program_id(0)
     num_programs = tl.num_programs(0)
 
-    for row_off in range(row,n_row,tl.cdiv(n_row / ROWS_PER_PROGRAM)):
+    for row_off in range(row,n_row,ROW_INTERVAL):
        X_row = input_ptr + row_off * input_row_stride
        Y_row = output_ptr + row_off * input_row_stride
        sum_sq = tl.zeros([BLOCK_SIZE],dtype=tl.float32)

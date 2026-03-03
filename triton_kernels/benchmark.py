@@ -37,10 +37,11 @@ def rms_benchmarks(benchmark_name: str, **kwargs):
     if benchmark_name == "rmsnorm_with_loops":
         # BLOCK_SIZE = triton.next_power_of_2(X.shape[1])
         BLOCK_SIZE = 2048
+        ROW_INTERVAL = triton.cdiv(X.shape[0],kwargs["SMS_COUNT"])
         # can increase denominator to improve performance for larger sizes
         # rmsnorm_kernel_1[(X.shape[0],1,1)](output,X,w,eps,X.stride(0),BLOCK_SIZE,num_stages)
-        rmsnorm_kernel_3[(triton.cdiv(X.shape[0], 128), 1, 1)](
-            output, X, w, eps, X.shape[0], X.stride(0), BLOCK_SIZE, num_stages, False
+        rmsnorm_kernel_3[(ROW_INTERVAL, 1, 1)](
+            output, X, w, eps, X.shape[0], X.stride(0), ROW_INTERVAL,BLOCK_SIZE, num_stages, False
         )
     else:
         raise Exception(f"No kernel with name {benchmark_name}")

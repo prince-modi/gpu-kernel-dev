@@ -1,8 +1,8 @@
 import triton_kernels.benchmark as tlb
 import helion_kernels.benchmark as hlb
 import torch_kernels.benchmark as torlb
-import cutlass.cute as cute
-import cute_kernels.benchmark as curlb
+# import cutlass.cute as cute
+# import cute_kernels.benchmark as curlb
 import triton
 import torch
 import os
@@ -81,15 +81,20 @@ def get_rms_benchmark(M: int, N: int, provider: str):
     dsl_type = split_name[0]
     bench_name = split_name[1]
     if dsl_type == 'triton':
-        return lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
+        if is_cuda():
+          properties = torch.cuda.get_device_properties(0)
+          SMS_COUNT = properties.multi_processor_count
+        else:
+          SMS_COUNT = 1
+        return lambda: tlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps,SMS_COUNT=SMS_COUNT)
     elif dsl_type == 'helion':
         compiled_code = hlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
         return lambda: hlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
     elif dsl_type == 'torch':
         return lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
-    elif dsl_type == 'cute':
-        compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
-        return lambda: curlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
+    # elif dsl_type == 'cute':
+    #     compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
+    #     return lambda: curlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
     elif dsl_type == 'thunderkittens' and is_hopper():
         raise Exception(f'Thunderkittens needs to be placed here!!!')
     else:

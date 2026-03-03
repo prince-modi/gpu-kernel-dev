@@ -33,7 +33,7 @@ def check_args_attn(**kwargs):
 
 
 def compile_rms_benchmark(benchmark_name: str, **kwargs):
-    args = check_args_rms(kwargs)
+    args = check_args_rms(**kwargs)
     bound_kernel = None
     if benchmark_name == 'helion_rms_kernel':
         bound_kernel = helion_rms_kernel.bind(args)
@@ -52,20 +52,20 @@ def compile_attn_benchmark(benchmark_name:str, **kwargs):
 
 
 def rms_benchmarks(compiled_code, **kwargs):
-    X,w,eps = check_args_rms(kwargs)
+    X,w,eps = check_args_rms(**kwargs)
     compiled_code(X,w,eps)
 
 def attn_benchmarks(compiled_code,**kwargs):
-    Q,K,V = check_args_attn(kwargs)
+    Q,K,V = check_args_attn(**kwargs)
     compiled_code(Q,K,V)
 
 def helion_provide_benchmark(benchmark_name: str,**kwargs):
     if 'rms' in benchmark_name:
-        bounded_kernel = compile_rms_benchmark(benchmark_name,kwargs)
-        rms_benchmarks(bounded_kernel,kwargs)
+        bounded_kernel = compile_rms_benchmark(benchmark_name,**kwargs)
+        rms_benchmarks(bounded_kernel,**kwargs)
     elif 'flashattn' in benchmark_name or 'attn' in benchmark_name:
-        bounded_kernel = compile_attn_benchmark(benchmark_name,kwargs)
-        attn_benchmarks(bounded_kernel,kwargs)
+        bounded_kernel = compile_attn_benchmark(benchmark_name,**kwargs)
+        attn_benchmarks(bounded_kernel,**kwargs)
     elif 'load' in benchmark_name:
         raise Exception(f'Received unsupported kernel {benchmark_name}')
     else:
