@@ -93,7 +93,11 @@ def get_rms_benchmark(M: int, N: int, provider: str):
     elif dsl_type == 'torch':
         return lambda: torlb.rms_benchmarks(bench_name,X=x,w=w,eps=eps)
     elif dsl_type == 'cute':
-        compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps)
+        #gpu is hopper / blackwell
+        gpu_args = 'A100'
+        if torch.cuda.get_device_capability()[0] >= 9:
+            gpu_args = 'H100'
+        compiled_code = curlb.compile_rms_benchmark(bench_name,X=x,w=w,eps=eps,gpu=gpu_args)
         return lambda: curlb.rms_benchmarks(compiled_code,X=x,w=w,eps=eps)
     elif dsl_type == 'thunderkittens' and is_hopper():
         raise Exception(f'Thunderkittens needs to be placed here!!!')

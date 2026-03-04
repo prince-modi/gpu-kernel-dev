@@ -24,7 +24,7 @@ _RMS_KERNELS = {
 }
 
 def _resolve_gpu(kwargs):
-    gpu = kwargs.get('gpu', 'A100')
+    gpu = kwargs.get('gpu', 'A100').upper()
     if gpu not in _RMS_KERNELS:
         raise ValueError(f"Unsupported gpu={gpu!r}. Choose from {list(_RMS_KERNELS)}")
     return _RMS_KERNELS[gpu]
