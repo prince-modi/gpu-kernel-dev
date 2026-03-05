@@ -83,11 +83,61 @@ def rms_benchmarks(compiled_code, **kwargs):
     compiled_code(mX, mW, mY, Float32(eps))
 
 # ---------------------------------------------------------------------------
-# Flash Attention 2 (via flash_attn library)
+# Flash Attention 2 — CuTe DSL SM80 kernel (self-contained, no flash_attn pip pkg)
 # ---------------------------------------------------------------------------
 
+from cute_kernels.flash_attn.SM80_flash_attn_kernel import flash_attn_sm80_fwd
+
+def _get_sm_version():
+    if not torch.cuda.is_available():
+        return 0
+    major, minor = torch.cuda.get_device_capability()
+    return major * 10 + minor
+
+
 def compile_fa2_benchmark(benchmark_name: str, **kwargs):
-    """Bind flash_attn_qkvpacked_func with the given config and return a callable."""
+    """Compile/bind the CuTe DSL SM80 Flash Attention forward kernel."""
+    sm = _get_sm_version()
+    if sm >= 90:
+        raise NotImplementedError(
+            f"CuTe DSL Flash Attention forward for SM{sm} (H100/Hopper) is not implemented yet. "
+            f"Only SM80 (A100/Ampere) is currently supported."
+        )
+
+    if 'qkv' not in kwargs:
+        raise Exception("Expected argument 'qkv' in kwargs")
+    qkv = kwargs['qkv'].contiguous()
+    q, k, v = qkv[:, :, 0], qkv[:, :, 1], qkv[:, :, 2]
+
+    causal = bool(kwargs.get('causal', False))
+    softmax_scale = kwargs.get('softmax_scale', None)
+
+    # Warm-compile on first call; flash_attn_sm80_fwd caches internally.
+    flash_attn_sm80_fwd(q, k, v, softmax_scale=softmax_scale, causal=causal)
+
+    def compiled_code(**call_kwargs):
+        qkv_in = call_kwargs.get('qkv', qkv).contiguous()
+        qi, ki, vi = qkv_in[:, :, 0], qkv_in[:, :, 1], qkv_in[:, :, 2]
+        return flash_attn_sm80_fwd(qi, ki, vi, softmax_scale=softmax_scale, causal=causal)
+
+    return compiled_code
+
+
+def fa2_benchmark(compiled_code, **kwargs):
+    qkv = kwargs.get('qkv')
+    if qkv is None:
+        raise Exception("Expected argument 'qkv' in kwargs")
+    compiled_code(qkv=qkv)
+
+
+# ---------------------------------------------------------------------------
+# Flash Attention 2 — pre-compiled C++/CUDA pip package (flash_attn)
+# This is NOT the CuTe DSL kernel; it wraps the pip-installable flash_attn
+# library which ships its own CUDA binaries.
+# ---------------------------------------------------------------------------
+
+def compile_fa2_benchmark_precompiled(benchmark_name: str, **kwargs):
+    """Bind flash_attn_qkvpacked_func (pip package) — not a CuTe kernel."""
     if 'qkv' not in kwargs:
         raise Exception("Expected argument 'qkv' in kwargs")
     qkv = kwargs['qkv']
@@ -110,12 +160,6 @@ def compile_fa2_benchmark(benchmark_name: str, **kwargs):
         )
 
     return compiled_code
-
-def fa2_benchmark(compiled_code, **kwargs):
-    qkv = kwargs.get('qkv')
-    if qkv is None:
-        raise Exception("Expected argument 'qkv' in kwargs")
-    compiled_code(qkv=qkv)
 
 # ---------------------------------------------------------------------------
 # Top-level dispatch

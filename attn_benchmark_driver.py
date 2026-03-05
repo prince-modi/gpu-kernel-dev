@@ -107,7 +107,7 @@ def get_attn_benchmark(
     dsl_type = split_name[0]
     bench_name = split_name[1]
     if dsl_type not in ["triton", "helion", "torch"]:
-        qkv = torch.randn((BATCH, N_CTX, 3, H, HEAD_DIM))
+        qkv = torch.randn((BATCH, N_CTX, 3, H, HEAD_DIM), dtype=dtype, device=DEVICE)
     else:
         q = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)
         k = torch.randn((BATCH, H, N_CTX, HEAD_DIM), dtype=dtype, device=DEVICE)

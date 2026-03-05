@@ -17,7 +17,7 @@ def retrieve_configs(benchmark_name: str):
   return filtered_configs
 
 
-config_list = retrieve_configs('helion_rms_kernel')
+config_list = retrieve_configs('flashatt_fwd')
 
 @helion.kernel(
     configs = config_list,

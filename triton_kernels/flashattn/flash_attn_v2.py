@@ -177,7 +177,8 @@ def flash_attention_v2_wrapper(q, k, v, causal=False):
     BLOCK_M = 128
     BLOCK_N = 64
     grid = (triton.cdiv(N_CTX, BLOCK_M), Z * H, 1)
-    STAGE = 3 if not causal else 1
+    # STAGE = 3 if not causal else 1
+    STAGE = 3 if causal else 1
 
     attn_fwd[grid](
         q,
