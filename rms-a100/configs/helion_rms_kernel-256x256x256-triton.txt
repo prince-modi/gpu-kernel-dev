@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+import torch
+import triton
+import triton.language as tl
+from torch._inductor.runtime.triton_compat import libdevice
+from helion.runtime import default_launcher as _default_launcher
+
+_BLOCK_SIZE_0 = tl.constexpr(8)
+
+@triton.jit
+def _helion_helion_rms_kernel(w, x, out, w_size_0, out_stride_0, out_stride_1, w_stride_0, x_stride_0, x_stride_1, m, eps, _RDIM_SIZE_1: tl.constexpr):
+    # src[basic_rmsnorm.py:26]: for m_tile in hl.tile(m):
+    pid_0 = tl.program_id(0)
+    offset_0 = pid_0 * _BLOCK_SIZE_0
+    indices_0 = (offset_0 + tl.arange(0, _BLOCK_SIZE_0)).to(tl.int32)
+    mask_0 = indices_0 < m
+    indices_1 = tl.arange(0, _RDIM_SIZE_1).to(tl.int32)
+    mask_1 = indices_1 < w_size_0
+    # src[basic_rmsnorm.py:27]: row = x[m_tile,:].to(torch.float32) #prevents loss in precision
+    load = tl.load(x + (indices_0[:, None] * x_stride_0 + indices_1[None, :] * x_stride_1), mask_0[:, None] & mask_1[None, :], other=0)
+    v_0 = tl.cast(load, tl.float32)
+    # src[basic_rmsnorm.py:28]: sumsq = torch.rsqrt(torch.mean(row * row,dim = -1) + eps)
+    v_1 = v_0 * v_0
+    mean_extra = tl.cast(tl.sum(v_1, 1), tl.float32)
+    v_2 = tl.cast(w_size_0, tl.float32)
+    v_3 = mean_extra / v_2
+    v_4 = v_3 + eps
+    v_5 = libdevice.rsqrt(v_4)
+    # src[basic_rmsnorm.py:29]: row = (row * sumsq[:,None]) * w[:].to(torch.float32) #again prevents loss in precision
+    subscript = v_5[:, None]
+    v_6 = v_0 * subscript
+    load_1 = tl.load(w + indices_1 * w_stride_0, mask_1, other=0)
+    v_7 = tl.cast(load_1, tl.float32)
+    v_8 = v_7[None, :]
+    v_9 = v_6 * v_8
+    # src[basic_rmsnorm.py:30]: out[m_tile,:] = row.to(out.dtype)
+    v_10 = tl.cast(v_9, tl.float16)
+    tl.store(out + (indices_0[:, None] * out_stride_0 + indices_1[None, :] * out_stride_1), v_10, mask_0[:, None] & mask_1[None, :])
+
+def helion_rms_kernel(x: torch.Tensor, w: torch.Tensor, eps, *, _launcher=_default_launcher):
+    # src[basic_rmsnorm.py:23]: out = torch.empty_like(x)
+    out = torch.empty_like(x)
+    # src[basic_rmsnorm.py:24]: m = x.shape[0]
+    m = x.shape[0]
+    # src[basic_rmsnorm.py:26]: for m_tile in hl.tile(m):
+    _BLOCK_SIZE_0 = 8
+    _RDIM_SIZE_1 = triton.next_power_of_2(w.size(0))
+    # src[basic_rmsnorm.py:26]: for m_tile in hl.tile(m):
+    # src[basic_rmsnorm.py:27]:     row = x[m_tile,:].to(torch.float32) #prevents loss in precision
+    # src[basic_rmsnorm.py:28]:     sumsq = torch.rsqrt(torch.mean(row * row,dim = -1) + eps)
+    # src[basic_rmsnorm.py:26-30]: ...
+    _launcher(_helion_helion_rms_kernel, (triton.cdiv(m, _BLOCK_SIZE_0),), w, x, out, w.size(0), out.stride(0), out.stride(1), w.stride(0), x.stride(0), x.stride(1), m, eps, _RDIM_SIZE_1, num_warps=16, num_stages=2)
+    # src[basic_rmsnorm.py:31]: return out
+    return out
