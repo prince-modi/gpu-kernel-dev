@@ -1,0 +1,40 @@
+{
+  "block_sizes": [
+    1
+  ],
+  "reduction_loops": [
+    null
+  ],
+  "range_unroll_factors": [
+    0
+  ],
+  "range_warp_specializes": [],
+  "range_num_stages": [
+    0
+  ],
+  "range_multi_buffers": [
+    null
+  ],
+  "range_flattens": [
+    null
+  ],
+  "load_eviction_policies": [
+    "",
+    "last",
+    "",
+    "",
+    "first"
+  ],
+  "num_warps": 32,
+  "num_stages": 3,
+  "indexing": [
+    "pointer",
+    "block_ptr",
+    "pointer",
+    "pointer",
+    "pointer",
+    "block_ptr",
+    "pointer"
+  ],
+  "pid_type": "flat"
+}
