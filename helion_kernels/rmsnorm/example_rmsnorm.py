@@ -1,10 +1,12 @@
 import helion
 import torch
 import helion.language as hl
+from generate_config import retrieve_configs
 
+config_list = retrieve_configs('rms_norm_fwd')
 
 #https://helionlang.com/examples/rms_norm.html
-@helion.kernel(autotune_effort="none")
+@helion.kernel(configs = config_list, static_shapes = False)
 def rms_norm_fwd(
     x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5
 ) -> torch.Tensor:
