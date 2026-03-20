@@ -734,7 +734,7 @@ def _assume_tensor_aligned(t):
     return cute.make_tensor(t.iterator, cute.make_layout(t.shape, stride=_assume_strides_aligned(t)))
 
 
-def _to_cute_tensor(t, assumed_align=16, leading_dim=-1, fully_dynamic=False, enable_tvm_ffi=True):
+def _to_cute_tensor(t, assumed_align=16, leading_dim=-1, fully_dynamic=False, enable_tvm_ffi=False):
     tensor = from_dlpack(t.detach(), assumed_align=assumed_align, enable_tvm_ffi=enable_tvm_ffi)
     if fully_dynamic:
         return tensor.mark_layout_dynamic()
@@ -811,6 +811,12 @@ class FlashAttentionForwardBase:
         self.vec_size: cutlass.Constexpr = getattr(
             score_mod, "__vec_size__", 1 if cutlass.const_expr(has_aux_tensors) else 2
         )
+        self.num_producer_threads = self.num_threads
+        self.num_Q_load_threads = self.num_threads
+        self.num_epilogue_threads = self.num_threads
+        self.use_tma_O = False  # SM80 only
+        self.aux_tensors = None
+        self.fastdiv_mods = None
 
     @staticmethod
     def can_implement(
@@ -1163,12 +1169,9 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
         )
         tiled_mma_qk, tiled_mma_pv = self._get_tiled_mma()
         self.num_mma_threads = tiled_mma_pv.size
-        self.num_producer_threads = self.num_threads
-        self.num_Q_load_threads = self.num_threads
-        self.num_epilogue_threads = self.num_threads
-        self.use_tma_O = self.arch >= 90
         self._setup_attributes()
         SharedStorage = self._get_shared_storage_cls()
+
         mQ, mK, mV, mO = [_assume_tensor_aligned(t) for t in (mQ, mK, mV, mO)]
         mQ, mK, mV, mO = [
             cute.make_tensor(t.iterator, cute.select(t.layout, mode=[1, 3, 2, 0]))
@@ -1183,47 +1186,42 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
         LOG2_E = math.log2(math.e)
         if const_expr(self.score_mod is None):
             softmax_scale_log2 = Float32(softmax_scale * LOG2_E)
-            softmax_scale = None
+            softmax_scale = Float32(0.0)
         else:
             softmax_scale_log2 = Float32(LOG2_E)
             softmax_scale = Float32(softmax_scale)
 
-        fastdiv_mods = None
-        if const_expr(aux_tensors is not None):
-            seqlen_q = cute.size(mQ.shape[0]) // (
-                self.qhead_per_kvhead if const_expr(self.pack_gqa) else 1
-            )
-            seqlen_k = cute.size(mK.shape[0])
-            seqlen_q_divmod = FastDivmodDivisor(seqlen_q)
-            seqlen_k_divmod = FastDivmodDivisor(seqlen_k)
-            fastdiv_mods = (seqlen_q_divmod, seqlen_k_divmod)
-
         self.kernel(
             mQ, mK, mV, mO, mLSE, softmax_scale_log2, softmax_scale,
             window_size_left, window_size_right,
-            self.sQ_layout, self.sK_layout, self.sV_layout, self.sO_layout, self.sP_layout,
+            self.sQ_layout, self.sK_layout, self.sV_layout, self.sO_layout,
             self.gmem_tiled_copy_Q, self.gmem_tiled_copy_K,
             self.gmem_tiled_copy_V, self.gmem_tiled_copy_O,
             tiled_mma_qk, tiled_mma_pv,
-            SharedStorage, aux_tensors, fastdiv_mods,
+            SharedStorage,
         ).launch(
             grid=grid_dim,
             block=[self.num_threads, 1, 1],
-            smem=SharedStorage.size_in_bytes(),
             stream=stream,
         )
 
     @cute.kernel
     def kernel(
         self,
-        mQ, mK, mV, mO, mLSE,
-        softmax_scale_log2, softmax_scale,
+        mQ: cute.Tensor, mK: cute.Tensor, mV: cute.Tensor,
+        mO: cute.Tensor, mLSE: cute.Tensor,
+        softmax_scale_log2: Float32, softmax_scale: Float32,
         window_size_left, window_size_right,
-        sQ_layout, sK_layout, sV_layout, sO_layout, sP_layout,
-        gmem_tiled_copy_Q, gmem_tiled_copy_K, gmem_tiled_copy_V, gmem_tiled_copy_O,
-        tiled_mma_qk, tiled_mma_pv,
-        SharedStorage, aux_tensors=None, fastdiv_mods=None,
+        sQ_layout: cute.ComposedLayout, sK_layout: cute.ComposedLayout,
+        sV_layout: cute.ComposedLayout, sO_layout: cute.ComposedLayout,
+        gmem_tiled_copy_Q: cute.TiledCopy, gmem_tiled_copy_K: cute.TiledCopy,
+        gmem_tiled_copy_V: cute.TiledCopy, gmem_tiled_copy_O: cute.TiledCopy,
+        tiled_mma_qk: cute.TiledMma, tiled_mma_pv: cute.TiledMma,
+        SharedStorage: cutlass.Constexpr,
     ):
+        fastdiv_mods = self.fastdiv_mods
+        aux_tensors = self.aux_tensors
+
         tidx, _, _ = cute.arch.thread_idx()
         m_block, num_head, batch_size = cute.arch.block_idx()
 
@@ -1431,7 +1429,6 @@ class FlashAttentionForwardSm80(FlashAttentionForwardBase):
         batch_idx: cutlass.Int32,
         head_idx: cutlass.Int32,
         m_block: cutlass.Int32,
-        seqlen: SeqlenInfoQK,
         aux_tensors=None,
         fastdiv_mods=None,
         mask_fn: Optional[Callable] = None,
@@ -1549,11 +1546,11 @@ def flash_attn_sm80_fwd(
 
     if out is None:
         out = torch.empty(batch, seqlen_q, num_heads, head_dim_v, dtype=q.dtype, device=device)
-    lse = (
-        torch.empty(batch, num_heads, seqlen_q, dtype=torch.float32, device=device)
-        if return_lse
-        else None
-    )
+    # Always allocate LSE — the kernel is compiled with a concrete tensor so CuTe DSL
+    # never sees None for mLSE (which would crash during tracing since @cute.jit
+    # doesn't do Python-level None branch elimination).  The cost is negligible
+    # (B*H*S float32).  We simply discard the result if the caller didn't ask for it.
+    lse = torch.empty(batch, num_heads, seqlen_q, dtype=torch.float32, device=device)
 
     qhead_per_kvhead = num_heads // num_heads_kv
 
@@ -1567,7 +1564,7 @@ def flash_attn_sm80_fwd(
     compile_key = (
         dtype, head_dim, head_dim_v, qhead_per_kvhead, causal, local,
         window_size_left is not None, window_size_right is not None,
-        tile_m, tile_n, num_stages, num_threads, lse is None,
+        tile_m, tile_n, num_stages, num_threads,
     )
 
     current_stream = cuda.CUstream(torch.cuda.current_stream().cuda_stream)
@@ -1586,30 +1583,30 @@ def flash_attn_sm80_fwd(
         k_tensor = _to_cute_tensor(k)
         v_tensor = _to_cute_tensor(v)
         o_tensor = _to_cute_tensor(out)
-        lse_tensor = _to_cute_tensor(lse, assumed_align=4) if lse is not None else None
+        lse_tensor = _to_cute_tensor(lse, assumed_align=4)
 
+        softmax_scale_f32 = Float32(softmax_scale)
         _compile_cache[compile_key] = cute.compile(
             fa_fwd,
             q_tensor, k_tensor, v_tensor, o_tensor,
             lse_tensor,
             current_stream,
-            softmax_scale,
+            softmax_scale_f32,
             window_size_left,
             window_size_right,
             None,  # learnable_sink
             None,  # aux_tensors
-            options="--enable-tvm-ffi",
         )
 
     _compile_cache[compile_key](
         q.detach(), k.detach(), v.detach(), out.detach(),
         lse,
         current_stream,
-        softmax_scale,
+        Float32(softmax_scale),
         window_size_left,
         window_size_right,
         None,  # learnable_sink
         None,  # aux_tensors
     )
 
-    return out, lse
+    return out, lse if return_lse else None
