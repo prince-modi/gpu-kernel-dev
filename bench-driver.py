@@ -39,7 +39,8 @@ if __name__ == "__main__":
                 method = get_rms_benchmark(M, N, kernel_test_name)
                 method()
             elif benchmark_name == 'attn_bench':
-                method = get_attn_benchmark(4096,32,4,128,is_hopper(),kernel_test_name)
+                # method = get_attn_benchmark(4096,32,4,128,is_hopper(),kernel_test_name)
+                method = get_attn_benchmark(4, 32, 4096, 128, is_hopper(), kernel_test_name) #possible bug
                 method()
             else:
                 print(f'Benchmark {benchmark_name} has not been identified. Exiting...')
